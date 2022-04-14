@@ -3026,3 +3026,76 @@ Array.prototype.steps = function(steps, func){
     }
   
   }  
+
+  // manages state data in a key value pair object. Each value is a two dimensional array. 
+  // Each second dimension has three values 
+  // [0] = time state entered
+  // [1] = state data
+  // [2] = time state left
+  class StateDataManager {
+
+    constructor(params){
+      this._statesData = params.storageManager.get()
+      this._transitions = params.transitions
+      this._storageManager = params.storageManager
+    }
+
+    init(){
+      const placeholders = {}
+      this._transitions.forEach(t => placeholders[t.name] = [])
+      this._storageManager.save(placeholders)
+    }
+
+    // get data
+    get(name){
+      const data = this._statesData[name]
+      return data[data.length - 1]
+    }
+
+    /**
+     * 
+     * @param {String} params.t1Name - previous transition name
+     * @param {String} params.t2.name - next transition name
+     * @param {Object} params.t2.data - next transition data
+     */
+    transition(params){
+      const time = new Date().getTime()
+      let previousTransition = {}
+
+      if(params.t1Name !== undefined) { 
+        const _ = this._statesData[params.t1Name]
+        _[_.length - 1].push(time)
+        previousTransition[params.t1Name] = this._statesData[params.t1Name]
+      }
+      // next transition
+      this._statesData[params.t2.name].push([time, params.t2.data])
+
+      this._storageManager.save({
+        ...previousTransition,
+        [params.t2.name] : this._statesData[params.t2.name]
+      })
+    }
+
+  }
+
+  /**
+   * Storage Manager Implementation for Google Apps Script
+   */
+  class StorageManager {
+    constructor(service = PropertiesService.getUserProperties()){
+      this._service = service
+    }
+
+    get(){
+      const props = this._service.getProperties()
+      const parsed = {}
+      for(let key in props) parsed[key] = JSON.parse(props[key])
+      return parsed
+    }
+
+    save(data){
+      const keyvalue = {}
+      for(let key in data) keyvalue[key] = JSON.stringify(data[key])
+      this._service.setProperties(keyvalue)
+    }
+  }

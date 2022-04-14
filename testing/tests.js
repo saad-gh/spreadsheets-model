@@ -1,3 +1,72 @@
+function test_StateDataManager(){
+  const transitions = [
+    { name: 'melt',     from: 'solid',  to: 'liquid' },
+    { name: 'freeze',   from: 'liquid', to: 'solid'  },
+    { name: 'vaporize', from: 'liquid', to: 'gas'    },
+    { name: 'condense', from: 'gas',    to: 'liquid' }
+  ];
+
+  const SDM = new StateDataManager({
+    storageManger : new StorageManager(PropertiesService.getScriptProperties()),
+    transitions : transitions
+  })
+
+  SDM.init()
+
+  const onMelt = () => {
+    const data = "melting"
+    SDM.transition({      
+      t2 : {
+        name : "melt",
+        data : data
+      }
+     })
+  }
+
+  const onFreeze = () => {
+    const data = "freezing"
+    SDM.transition({      
+      t2 : {
+        name : "freeze",
+        data : data
+      }
+     })
+  }
+
+  const onVaporize = () => {
+    const data = "vapourizing"
+    SDM.transition({      
+      t2 : {
+        name : "vaporize",
+        data : data
+      }
+     })
+  }
+
+  const onCondense = () => {
+    const data = "condensing"
+    SDM.transition({      
+      t2 : {
+        name : "condense",
+        data : data
+      }
+     })
+    SDM.init()
+  }
+
+  var fsm = new StateMachine({
+    init: 'solid',
+    transitions: transitions,
+    methods: {
+      onMelt:     onMelt,
+      onFreeze:   onFreeze,
+      onVaporize: onVaporize,
+      onCondense: onCondense
+    }
+  });
+
+}
+
 function test_loader(){
   const [TestTablesSheet] = loader([944181883])
   const ph = TestTablesSheet.table('Placeholder')
