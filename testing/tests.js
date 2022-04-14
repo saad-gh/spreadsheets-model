@@ -3,55 +3,55 @@ function test_StateDataManager(){
     { name: 'melt',     from: 'solid',  to: 'liquid' },
     { name: 'freeze',   from: 'liquid', to: 'solid'  },
     { name: 'vaporize', from: 'liquid', to: 'gas'    },
-    { name: 'condense', from: 'gas',    to: 'liquid' }
+    { name: 'condense', from: 'gas',    to: 'liquid' },
+    { name: 'goto', from: '*', to: function(s){ return s } }
   ];
 
-  const SDM = new StateDataManager({
-    storageManger : new StorageManager(PropertiesService.getScriptProperties()),
+  console.log(PropertiesService.getScriptProperties().getProperties()); 
+  
+  const SDM = new FbaStateDataManager({
+    storageManager : new StorageManager(PropertiesService.getScriptProperties()),
     transitions : transitions
   })
-
-  SDM.init()
 
   const onMelt = () => {
     const data = "melting"
     SDM.transition({      
-      t2 : {
+
         name : "melt",
         data : data
-      }
+
      })
   }
 
   const onFreeze = () => {
     const data = "freezing"
-    SDM.transition({      
-      t2 : {
+    SDM.transition({  
+
         name : "freeze",
         data : data
-      }
+
      })
   }
 
   const onVaporize = () => {
     const data = "vapourizing"
     SDM.transition({      
-      t2 : {
+
         name : "vaporize",
         data : data
-      }
+
      })
   }
 
   const onCondense = () => {
     const data = "condensing"
     SDM.transition({      
-      t2 : {
+
         name : "condense",
         data : data
-      }
+
      })
-    SDM.init()
   }
 
   var fsm = new StateMachine({
@@ -64,6 +64,10 @@ function test_StateDataManager(){
       onCondense: onCondense
     }
   });
+
+  const current = SDM.current()
+  if(current !== undefined) fsm.goto(transitions.filter(t => t.name === current)[0].to)
+  fsm.condense()
 
 }
 

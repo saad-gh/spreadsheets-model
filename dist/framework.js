@@ -3035,7 +3035,7 @@ Array.prototype.steps = function(steps, func){
   class StateDataManager {
 
     constructor(params){
-      this._statesData = params.storageManager.get()
+      this._statesData = params.storageManager.get(params.transitions)
       this._transitions = params.transitions
       this._storageManager = params.storageManager
     }
@@ -3052,27 +3052,36 @@ Array.prototype.steps = function(steps, func){
       return data[data.length - 1]
     }
 
+    current(){
+      let max = -1
+      let current = undefined
+
+      for(let key in this._statesData){
+        if(this._statesData[key].length === 0) continue
+        
+        const time = this._statesData[key][0][0]
+        if(time > max) {
+          max = time
+          current = key
+        }
+      }
+
+      return current
+    }
+
     /**
      * 
-     * @param {String} params.t1Name - previous transition name
      * @param {String} params.t2.name - next transition name
      * @param {Object} params.t2.data - next transition data
      */
     transition(params){
       const time = new Date().getTime()
-      let previousTransition = {}
 
-      if(params.t1Name !== undefined) { 
-        const _ = this._statesData[params.t1Name]
-        _[_.length - 1].push(time)
-        previousTransition[params.t1Name] = this._statesData[params.t1Name]
-      }
       // next transition
-      this._statesData[params.t2.name].push([time, params.t2.data])
+      this._statesData[params.name].push([time, params.data])
 
       this._storageManager.save({
-        ...previousTransition,
-        [params.t2.name] : this._statesData[params.t2.name]
+        [params.name] : this._statesData[params.name]
       })
     }
 
@@ -3086,10 +3095,11 @@ Array.prototype.steps = function(steps, func){
       this._service = service
     }
 
-    get(){
+    get(transitions){
+      const names = transitions.map(t => t.name)
       const props = this._service.getProperties()
       const parsed = {}
-      for(let key in props) parsed[key] = JSON.parse(props[key])
+      for(let key in props) if(names.indexOf(key) !== -1) parsed[key] = JSON.parse(props[key])
       return parsed
     }
 
