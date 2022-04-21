@@ -253,6 +253,7 @@ Array.prototype.steps = function(steps, func){
   
   // join array of objects
   // d1 picks a subset from d2 where d1[x][query.a] === d2[x][query.b]
+  // TODO: enable joined table to be joined with another by referencing keys without table name
   let join = (d1, d2, query) => {
   
     const [a, b] = Object.keys(query)
@@ -276,9 +277,16 @@ Array.prototype.steps = function(steps, func){
   
         // avoiding duplicate keys
         const row = {}
-        for(let key in row1) row[`${a}.${key}`] = row1[key]
+        let newkey = undefined
+        for(let key in row1) { 
+          newkey = key.split(".").length > 1 ? key : `${a}.${key}`; 
+          row[newkey] = row1[key]
+        }
         const row2 = d2[i2]
-        for(let key in row2) row[`${b}.${key}`] = row2[key]
+        for(let key in row2) {
+          newkey = key.split(".").length > 1 ? key : `${b}.${key}`; 
+          row[newkey] = row2[key]
+        }
         d12.push(row)
   
         ++i2;
@@ -2016,6 +2024,15 @@ Array.prototype.steps = function(steps, func){
         this.table.model = this
       }
     }
+
+    *groupGenerator(key){
+      const unique = [...new Set(this.getColumnValues(key))]
+      
+      for(let i = 0; i < unique.length; i++ ){
+        this.all().filter({ [key] : unique[i] })
+        yield this
+      }
+    }
   
     set nestedModel(property){
       if(this[property.name] !== undefined) this[property.name].addLast(property.model.all().value)
@@ -2053,11 +2070,14 @@ Array.prototype.steps = function(steps, func){
   
       // initializing variable for joined schema
       const schema = {}
+      let newkey = undefined
       for(let key in this.schema){
-        schema[`${a}.${key}`] = this.schema[key]
+        newkey = key.split(".").length > 1 ? key : `${a}.${key}`
+        schema[newkey] = this.schema[key]
       }
       for(let key in this._join.schema){
-        schema[`${b}.${key}`] = this._join.schema[key]
+        newkey = key.split(".").length > 1 ? key : `${b}.${key}`
+        schema[newkey] = this._join.schema[key]
       }
   
       this._joined = new Model(schema)
@@ -2357,7 +2377,7 @@ Array.prototype.steps = function(steps, func){
   
     getColumnValues(col){
       if(this.schemaKeys.indexOf(col) === -1) throw new ssManagerError('Field not found: ' + col)
-      if(this.pointer.length > 0) return this.pointer.map(i => values[i][col])
+      if(this.pointer.length > 0) return this.pointer.map(i => this.values[i][col])
       else return []
     }
   
@@ -3038,18 +3058,18 @@ Array.prototype.steps = function(steps, func){
       this._statesData = params.storageManager.get(params.transitions)
       this._transitions = params.transitions
       this._storageManager = params.storageManager
-    }
-
-    init(){
-      const placeholders = {}
-      this._transitions.forEach(t => placeholders[t.name] = [])
-      this._storageManager.save(placeholders)
+      this._current = undefined
     }
 
     // get data
-    get(name){
+    get(name = this._current){
+      if(name === undefined) throw new ssManagerError("name cannot be undefined.")
       const data = this._statesData[name]
-      return data[data.length - 1]
+      return data[data.length - 1][1]
+    }
+
+    get name(){
+      return this._current
     }
 
     current(){
@@ -3066,7 +3086,9 @@ Array.prototype.steps = function(steps, func){
         }
       }
 
-      return current
+      this._current = current
+
+      return this
     }
 
     /**
@@ -3091,8 +3113,14 @@ Array.prototype.steps = function(steps, func){
    * Storage Manager Implementation for Google Apps Script
    */
   class StorageManager {
-    constructor(service = PropertiesService.getUserProperties()){
+    constructor(service = PropertiesService.getDocumentProperties()){
       this._service = service
+    }
+
+    init(transitions){
+      const placeholders = {}
+      transitions.forEach(t => placeholders[t.name] = [])
+      this.save(placeholders)
     }
 
     get(transitions){
