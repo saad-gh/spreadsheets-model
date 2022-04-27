@@ -3052,24 +3052,30 @@ Array.prototype.steps = function(steps, func){
   // [0] = time state entered
   // [1] = state data
   // [2] = time state left
+  // params.transitions first transition must be the initial transition
   class StateDataManager {
 
     constructor(params){
       this._statesData = params.storageManager.get(params.transitions)
       this._transitions = params.transitions
       this._storageManager = params.storageManager
+      this._first = params.transitions[0].name
       this._current = undefined
+      this._active = undefined
     }
 
     // get data
-    get(name = this._current){
-      if(name === undefined) throw new ssManagerError("name cannot be undefined.")
-      const data = this._statesData[name]
-      return data[data.length - 1][1]
+    get(params){
+      if(params.name === undefined) throw new ssManagerError("name cannot be undefined.")
+      let data = undefined;
+      if(params.buffer) data = this._statesData[params.name + "buffer"]
+      else data = this._statesData[params.name]
+      this._active = params.name
+      return data[0][1]
     }
 
-    get name(){
-      return this._current
+    get transition(){
+      return this._active
     }
 
     current(){
@@ -3087,8 +3093,7 @@ Array.prototype.steps = function(steps, func){
       }
 
       this._current = current
-
-      return this
+      return current
     }
 
     /**
@@ -3098,11 +3103,19 @@ Array.prototype.steps = function(steps, func){
      */
     transition(params){
       const time = new Date().getTime()
+      
+      const bufferKey = this._first === params.name ? "fbainitbuffer" : this._active + "buffer"
+
+      // failed transiton data
+      if(params.buffer === false) this._statesData[bufferKey] = []
+      else if(params.buffer !== undefined) this._statesData[bufferKey][0] = [time, params.buffer]
 
       // next transition
-      this._statesData[params.name].push([time, params.data])
+      if(params.data === false) this._statesData[params.name] = []
+      else if(params.data !== undefined) this._statesData[params.name][0] = [time, params.data] 
 
       this._storageManager.save({
+        [bufferKey] : this._statesData[bufferKey],
         [params.name] : this._statesData[params.name]
       })
     }
@@ -3119,7 +3132,10 @@ Array.prototype.steps = function(steps, func){
 
     init(transitions){
       const placeholders = {}
-      transitions.forEach(t => placeholders[t.name] = [])
+      transitions.forEach(t => {
+        placeholders[t.name] = [];
+        placeholders[t.name + "buffer"] = []
+      })
       this.save(placeholders)
     }
 
