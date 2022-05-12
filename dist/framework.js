@@ -1,4 +1,5 @@
-const sheetId = 1083321884
+const shids = {}
+shids.schema = 1083321884
 
 var CONFIG = {
     SS: SpreadsheetApp.getActiveSpreadsheet(),
@@ -14,7 +15,7 @@ var CONFIG = {
       }
     },
     SCHEMA_SHEET :{
-      sheetId : sheetId,
+      sheetId : shids.schema,
       tables : [{
         tableName : "Schemas",
         schema : {
@@ -362,9 +363,11 @@ Array.prototype.steps = function(steps, func){
         let container = directives[key]
   
         if(container.constructor.name === "Array") throw new ssManagerError("directive cannot be an array")
-  
+
         if(container !== undefined && container.constructor.name === "Object" && Object.keys(container).every(key => typeof container[key] !== 'function')){
-          
+
+          // TODO: nested should be handled after current level so filters can be applied.
+          // See how prepdetailslist in fba service is assigned values
           nested[key] = this._output(directives[key])        
           if(Object.keys(nested[key]).length === 0) delete nested[key]
   
@@ -3070,8 +3073,8 @@ Array.prototype.steps = function(steps, func){
       let data = undefined;
       if(params.buffer) data = this._statesData[params.name + "buffer"]
       else data = this._statesData[params.name]
-      this._active = params.name
-      return data[0][1]
+      // this._active = params.name
+      return data[0] !== undefined ? data[0][1] : []
     }
 
     get transition(){
@@ -3104,19 +3107,19 @@ Array.prototype.steps = function(steps, func){
     transition(params){
       const time = new Date().getTime()
       
-      const bufferKey = this._first === params.name ? "fbainitbuffer" : this._active + "buffer"
+      const bufferKey = this._first === params.to ? "fbainitbuffer" : params.from + "buffer"
 
       // failed transiton data
       if(params.buffer === false) this._statesData[bufferKey] = []
       else if(params.buffer !== undefined) this._statesData[bufferKey][0] = [time, params.buffer]
 
       // next transition
-      if(params.data === false) this._statesData[params.name] = []
-      else if(params.data !== undefined) this._statesData[params.name][0] = [time, params.data] 
+      if(params.data === false) this._statesData[params.to] = []
+      else if(params.data !== undefined) this._statesData[params.to][0] = [time, params.data] 
 
       this._storageManager.save({
         [bufferKey] : this._statesData[bufferKey],
-        [params.name] : this._statesData[params.name]
+        [params.to] : this._statesData[params.to]
       })
     }
 
@@ -3126,7 +3129,7 @@ Array.prototype.steps = function(steps, func){
    * Storage Manager Implementation for Google Apps Script
    */
   class StorageManager {
-    constructor(service = PropertiesService.getDocumentProperties()){
+    constructor(service){
       this._service = service
     }
 
@@ -3140,10 +3143,16 @@ Array.prototype.steps = function(steps, func){
     }
 
     get(transitions){
-      const names = transitions.map(t => t.name)
+      const names = []
+      transitions.forEach(t => {
+        names.push(t.name)
+        names.push(t.name + "buffer")
+      })
       const props = this._service.getProperties()
       const parsed = {}
-      for(let key in props) if(names.indexOf(key) !== -1) parsed[key] = JSON.parse(props[key])
+      for(let key in props) if(names.indexOf(key) !== -1) {
+        parsed[key] = JSON.parse(props[key])
+      }
       return parsed
     }
 

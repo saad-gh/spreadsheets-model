@@ -79,13 +79,15 @@ function test_loader(){
 }
 
 function test_readme(){
-  const st = new SheetTables(1804062973)
+  const st = loader([1098076133])[0]
 
-  // st.insert({
-  //     // table name
-  //     name : "Records",
-  //     headers : ["id", "item", "description", "qty"]
-  // })
+  st.insert({
+      // table name
+      name : "quantity received",
+      headers : ["shipmentid", "sku", "quantity received", "release date"],
+      isLastRowTemplate : false,
+      strictCheck : false
+  })
 
   // st.insert({
   //     // table name
@@ -93,53 +95,53 @@ function test_readme(){
   //     headers : ["id", "name", "role" ]
   // })
 
-  const models = st.models
-  // // add data to table top
-  // models['Team'].addFirst({ id : 1,  name : "Saad", role : "developer" })
-  // models['Team'].addLast({ id : 2,  name : "Saad", role : "developer" })
+  // const models = st.models
+  // // // add data to table top
+  // // models['Team'].addFirst({ id : 1,  name : "Saad", role : "developer" })
+  // // models['Team'].addLast({ id : 2,  name : "Saad", role : "developer" })
 
-  // models['Team'].get({ id : 2 }).addBelow({ id : 3,  name : "Saad", role : "developer" })
-  // models['Team'].get({ id : 2 }).addAbove({ id : 4,  name : "Saad", role : "developer" })
+  // // models['Team'].get({ id : 2 }).addBelow({ id : 3,  name : "Saad", role : "developer" })
+  // // models['Team'].get({ id : 2 }).addAbove({ id : 4,  name : "Saad", role : "developer" })
 
-  // // add methods also accept multiple row objects for example
-  // models['Team'].addLast([
-  //   { id : 5,  name : "Saad", role : "developer"} ,
-  //   { id : 6,  name : "Saad", role : "developer"} ,
-  //   { id : 7,  name : "Saad", role : "developer"} 
-  // ])
+  // // // add methods also accept multiple row objects for example
+  // // models['Team'].addLast([
+  // //   { id : 5,  name : "Saad", role : "developer"} ,
+  // //   { id : 6,  name : "Saad", role : "developer"} ,
+  // //   { id : 7,  name : "Saad", role : "developer"} 
+  // // ])
 
-  // // write to table
-  // models['Team'].table.commit()
+  // // // write to table
+  // // models['Team'].table.commit()
   
-  // set model to point at all values
-  models['Team'].all()
-  // get values
-  let values = models['Team'].value
+  // // set model to point at all values
+  // models['Team'].all()
+  // // get values
+  // let values = models['Team'].value
 
-  // - filter functions return false if data is not found otherwise returns model object
-  // - values are then accessed with model's 'value' property
-  models['Team'].filter({ name : "Saad", id : 3 })
-  values = models['Team'].value
+  // // - filter functions return false if data is not found otherwise returns model object
+  // // - values are then accessed with model's 'value' property
+  // models['Team'].filter({ name : "Saad", id : 3 })
+  // values = models['Team'].value
 
-  // other filter functions
-  models['Team'].or({ name : "Saad", id : 3 })
-  models['Team'].and({ name : "Saad", id : 3 })
-  models['Team'].not({ name : "Saad", id : 3 })
-  models['Team'].nand({ name : "Saad", id : 3 }) // NAND logic
-  models['Team'].nor({ name : "Saad", id : 3 }) // NOR logic
-  models['Team'].greater({ id : 3 })
-  models['Team'].less({ id : 3 })
+  // // other filter functions
+  // models['Team'].or({ name : "Saad", id : 3 })
+  // models['Team'].and({ name : "Saad", id : 3 })
+  // models['Team'].not({ name : "Saad", id : 3 })
+  // models['Team'].nand({ name : "Saad", id : 3 }) // NAND logic
+  // models['Team'].nor({ name : "Saad", id : 3 }) // NOR logic
+  // models['Team'].greater({ id : 3 })
+  // models['Team'].less({ id : 3 })
 
-  // 'and', 'or', 'not', 'nand' and 'nor' filter functions can also take arrays for example
-  // the expression below translates to: name = 'Saad' or (id = 3 or id = 4)
-  models['Team'].or({ name : "Saad", id : [3, 4] })
-  // similary the expression below translates to: name = 'Saad' and (id = 3 or id = 4)
-  models['Team'].and({ name : "Saad", id : [3, 4] })
+  // // 'and', 'or', 'not', 'nand' and 'nor' filter functions can also take arrays for example
+  // // the expression below translates to: name = 'Saad' or (id = 3 or id = 4)
+  // models['Team'].or({ name : "Saad", id : [3, 4] })
+  // // similary the expression below translates to: name = 'Saad' and (id = 3 or id = 4)
+  // models['Team'].and({ name : "Saad", id : [3, 4] })
 
-  // 'greater' and 'less' functions take a second argument 'equal' of type 'bool'
-  // to differentiate between operators '>' and '>=' and '<' and '<=' for example
-  // the below expression translates to: id >= 3
-  models['Team'].greater({ id : 3 }, true)
+  // // 'greater' and 'less' functions take a second argument 'equal' of type 'bool'
+  // // to differentiate between operators '>' and '>=' and '<' and '<=' for example
+  // // the below expression translates to: id >= 3
+  // models['Team'].greater({ id : 3 }, true)
   
 }
 
@@ -215,8 +217,7 @@ function test_json_to_json(){
 
 function test_join(){
   let d1 = [
-    { a : "b", b : 2 },
-    { a : "a", b : 1 }
+    { a : "c", b : 2 },
   ]
 
   let d2 = [
@@ -228,23 +229,25 @@ function test_join(){
     { c : "a", d : 1 }
   ]
 
+  const joined = jsonToModel(d1).join(jsonToModel(d2)).on({ d1 : "a", d2 : "c" })
+
   // one to many
-  log(join(d1, d2, { d1 : "a", d2 : "c" }))
-  log(join(d1, d2, { d1 : "b", d2 : "d" }))
+  log(joined.all().value)
+  // log(join(d1, d2, { d1 : "b", d2 : "d" }))
 
-  // many to one
-  log(join(d2, d1, { d2 : "c", d1 : "a" }))
+  // // many to one
+  // log(join(d2, d1, { d2 : "c", d1 : "a" }))
 
-  let d3 = [
-    { c : "b", d : 2 },
-    { c : "a", d : 1 },
-    { c : "b", d : 2 },
-    { c : "a", d : 1 }
-  ]
+  // let d3 = [
+  //   { c : "b", d : 2 },
+  //   { c : "a", d : 1 },
+  //   { c : "b", d : 2 },
+  //   { c : "a", d : 1 }
+  // ]
 
-  // many to many
-  log(join(d2, d3, { d2 : "c", d3 : "c" }))
-  log(join(d3, d2, { d3 : "c", d2 : "c" }))  
+  // // many to many
+  // log(join(d2, d3, { d2 : "c", d3 : "c" }))
+  // log(join(d3, d2, { d3 : "c", d2 : "c" }))  
 
 }
 
