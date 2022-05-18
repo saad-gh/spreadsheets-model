@@ -151,6 +151,54 @@ function test_delete_table(){
   st.del("Records")
 }
 
+function test_json_to_model_and_back(){
+  // allowed json structure
+  // const json = {
+  //   "key1" : "tableKey_1",
+  //   "key3" : "tableKey_3",
+  //   "key2" : [
+  //     { "key1" : "tableKey_1","key2" : { "key1" : "tableKey_1"} },
+  //     { "key1" : "tableKey_2","key2" : [{ "key1" : "tableKey_2"}] },
+  //     { "key1" : "tableKey_3","key2" : [{ "key1" : "tableKey_3"}, { "key1" : "tableKey_4"}] }
+  //   ],
+  //   "key5" : { "key1" : "taleKey_1", "key2" : { "key1" : "tableKey_5" } },
+  //   "key6" : { "key1" : "tableKey_1", "key2":"tableKey_2" },
+  //   "key7" : { "key1" : "tableKey_1", "key2" : { "key1" : "tableKey_1" } },
+  // }
+
+  const json = {
+    "key1" : "tableKey_1",
+    "key3" : "tableKey_3",
+    "key2" : [
+      { "key1" : "tableKey_1","key2" : [{ "key1" : "tableKey_1"}] },
+      { "key1" : "tableKey_2","key2" : [{ "key1" : "tableKey_2"}] },
+      { "key1" : "tableKey_3","key2" : [{ "key1" : "tableKey_3"}, { "key1" : "tableKey_4"}] }
+    ],
+    "key5" : { "key1" : "taleKey_1", "key2" : { "key1" : "tableKey_5" } },
+    "key6" : { "key1" : "tableKey_1", "key2":"tableKey_2" },
+    "key7" : { "key1" : "tableKey_1", "key2" : { "key1" : "tableKey_1" } },
+  }
+
+  const model = jsonToModel(json)
+
+  log(JSON.stringify(modelToJson(model)))
+
+}
+
+function test_json_to_json_nested(){
+  // allowed json structure
+  const json = {
+    "key2" : [
+      { "key1" : "tableKey_1","key2" : [{ "key1" : "tableKey_1"}] },
+      { "key1" : "tableKey_2","key2" : [{ "key1" : "tableKey_2"}] },
+      { "key1" : "tableKey_3","key2" : [{ "key1" : "tableKey_3"}, { "key1" : "tableKey_4"}] }
+    ]
+  }
+
+  const model = jsonToModel(json)
+
+}
+
 function test_json_to_json(){
   // allowed json structure
   const json = {
@@ -175,19 +223,19 @@ function test_json_to_json(){
     root : [{ "key1" : "tableKey_1", "key3" : "tableKey_3" }],
 
     $key2 : [
-      { "key1" : "tableKey_1" },
-      { "key1" : "tableKey_2" },
-      { "key1" : "tableKey_3" }
+      { "$key1" : "tableKey_1", "$key3" : "tableKey_3", "key1" : "tableKey_1" },
+      { "$key1" : "tableKey_1", "$key3" : "tableKey_3", "key1" : "tableKey_2" },
+      { "$key1" : "tableKey_1", "$key3" : "tableKey_3", "key1" : "tableKey_3" }
     ],
 
     $key2_$key2 : [
-      { "key1" : "tableKey_1"},
-      { "key1" : "tableKey_2"},
-      { "key1" : "tableKey_3"},
-      { "key1" : "tableKey_4"}
+      { "$key1" : "tableKey_1", "key1" : "tableKey_1"},
+      { "$key1" : "tableKey_2", "key1" : "tableKey_2"},
+      { "$key1" : "tableKey_3", "key1" : "tableKey_3"},
+      { "$key1" : "tableKey_3", "key1" : "tableKey_4"}
     ],
 
-    $key5_$key2 : [{"key1" : "tableKey_5"}],
+    $key5_$key2 : [{"$key1" : "taleKey_1", "key1" : "tableKey_5"}]
     
   }
 

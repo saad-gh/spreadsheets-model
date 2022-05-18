@@ -218,29 +218,53 @@ Array.prototype.steps = function(steps, func){
     const model = new Model()
     const schema = {}
     const data = []
-  
+    const ctrs = {}
+
     let array = json
-    if(array.constructor.name === "Object") array = [array]
-    array.forEach(json => {
-  
+    if(array.constructor.name === "Object") {
+      array = [array]
+      model.isObject = true
+    }
+
+    array.forEach((json, i) => {
+      const nested = []      
       const row = {}
+
       for(let key in json){
         if(isPrimitive(json[key])){
   
           schema[key] = key
           row[key] = json[key]
   
-        } else {
-  
+        } else {  
           if(json[key].constructor.name === "Array" && json[key].some(value => isPrimitive(value))) throw new ssManagerError("a key's value cannot be an array of primitive types")
-  
-          model.nestedModel = { 
-            name : '$' + key,
-            model : jsonToModel(json[key])
-          }
-  
+          if(!(key in ctrs)) ctrs[key] = json[key].constructor.name
+          if(ctrs[key] !== json[key].constructor.name) throw new ssManagerError(`row "${JSON.stringify(json[key])}" should be "${ctrs[key]}" like in a previous row`)
+
+          nested.push(key)
         }
       }
+
+      const $row = {}
+
+      for(let key in row){
+        if(key.indexOf('$') !== 0)
+          $row['$' + key] = row[key]
+      }
+      
+      nested.forEach(key => {
+        if(json[key].constructor.name === "Object"){
+          json[key] = { ...json[key], ...$row }
+        } else {
+          json[key] = json[key].map(row_ => ({...row_, ...$row}) )
+        }
+
+        model.nestedModel = { 
+          name : '$' + key,
+          model : jsonToModel(json[key])
+        }
+      })
+
       data.push(row)
   
     })
@@ -250,6 +274,62 @@ Array.prototype.steps = function(steps, func){
   
     return model
   
+  }
+
+  /**
+   * nested model to json
+   */
+  function modelToJson(model){
+    if(model.value.length > 0){
+      let json = {}
+      if(model.isObject === true){
+        for(let key in model.value[0]){
+          if(key.indexOf("$") !== 0)
+            json[key] = model.value[0][key]
+        }
+
+        for(let key in model){
+          if(key.indexOf("$") === 0){
+            json[key.slice(1)] = modelToJson(model[key].all())
+            if(json[key.slice(1)] === undefined) delete json[key.slice(1)]
+          }
+        }
+
+      } else { // if model is not object it's array
+
+        json = model.value.map(row => {
+
+          // sanitizing from parent elements
+          const row_ = {}
+          for(let key in row){
+            if(key.indexOf("$") !== 0)
+              row_[key] = row[key]
+          }
+
+          // populating with nested elements
+          for(let nested in model){
+            if(nested.indexOf("$") === 0){
+
+              // filtering nested by parent
+              const filter = {}
+              for(let key in row_){
+                filter['$' + key] = row_[key]
+              }
+              model[nested].all()
+              const result = model[nested].filter(filter)
+              if(result !== false) {
+                // fetching nested object recursively
+                row_[nested.slice(1)] = modelToJson(model[nested])
+                if(row_[nested.slice(1)] === undefined) delete row_[nested.slice(1)]
+              }
+            }
+          }
+
+          return row_
+        })
+      }
+      return json
+    } else return undefined
   }
   
   // join array of objects
@@ -2035,6 +2115,14 @@ Array.prototype.steps = function(steps, func){
         this.all().filter({ [key] : unique[i] })
         yield this
       }
+    }
+
+    set isObject(v){
+      this._isObject = true
+    }
+
+    get isObject(){
+      return this._isObject
     }
   
     set nestedModel(property){
