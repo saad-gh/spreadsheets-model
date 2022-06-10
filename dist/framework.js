@@ -2230,12 +2230,23 @@ Array.prototype.steps = function(steps, func){
   
       return [schema, keyPK, fieldUniqueId]
     }
+
+    addSchema(schema){
+
+      if(this.schema !== undefined) {
+        [this.schema, this.keyPK, this.fieldUniqueId] = this._validateSchema({...this.schema, ...schema})
+        // adding empty columns
+        const emptyrow = Object.keys(schema).reduce((a, c) => { return { ...a, [c] : '' }}, {})
+        this.values = this.values.map(o => Object.assign(o, emptyrow))
+      } else [this.schema, this.keyPK, this.fieldUniqueId] = this._validateSchema(schema)
+      
+      this.emptyRowTemplate = this.schemaKeys.reduce((a, c) => { return { ...a, [c] : '' }}, {})  
+
+    }
   
     initialize(schema){
   
-      [this.schema, this.keyPK, this.fieldUniqueId] = this._validateSchema(schema)
-      
-      this.emptyRowTemplate = this.schemaKeys.reduce((a, c) => { return { ...a, [c] : '' }}, {})  
+      this.addSchema(schema)
   
       this._initDataVariables();
   
@@ -3195,7 +3206,7 @@ Array.prototype.steps = function(steps, func){
     transition(params){
       const time = new Date().getTime()
       
-      const bufferKey = this._first === params.to ? "fbainitbuffer" : params.from + "buffer"
+      const bufferKey = this._first === params.to ? "fbainitbuffer" : params.to + "buffer"
 
       // failed transiton data
       if(params.buffer === false) this._statesData[bufferKey] = []
