@@ -24,6 +24,7 @@ function demo(){
 function adding() {
 
   // load patient history table
+  // loader function accepts array of sheets ids and return SheetTable objects which have table models.
   const [sheet] = loader([1550146239])
   const history = sheet.models['Patient History']
 
@@ -56,10 +57,12 @@ function adding() {
 }
 
 function filtering() {
-  // set model to point at all values
   // load patient history table
   const [sheet] = loader([1550146239])
   const history = sheet.models['Patient History']
+
+  // set table model with all values
+  history.all()
   print("values", history.value)
 
   // filter functions return false if data is not found otherwise returns model object
@@ -138,7 +141,7 @@ function joining() {
     // the resulting array of objects will have updated keys for example 'age' from history will be 'h.age'
     // similary 'bp' from vitals will be 'v.bp'
     .on({ h: 'id', v: 'pid' });
-  print("oin", history.value)
+  print("join", history.value)
 
   // to join subset of data filter functions can be used for example the following will only join records
   // where age is greater than 50
@@ -284,6 +287,7 @@ function handling() {
   // directives also accept an operation attribute to transform response bodies. 
   // see upated directive below for how an id will be assigned to 'Vitals' object.
   // nextMaxInteger is a generator function which comes with the framework
+  // 'all' method on a table model sets the pointer to point at all values
   const idGen = nextMaxInteger("id", sheet.models['Patient History'].all().value)
   directive = {
     NameOfPatient: { key: "name", model: "Patient History", 

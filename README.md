@@ -1,98 +1,122 @@
 > Reduce and simplify business logic by accessing Google Sheet tables as object models
 
-## Prerequisite
+## Prerequisites
 - Files in dist folder in the order mentioned in .clasp.json need to be in the Apps Script project of Google Sheets.
 - Replace contents of appsscript.json with the one in this repo. By default  appsscript.json is hidden, can be set to visible from "Project Settings"
 - Add schema tables to a sheet manually as in [this sheet](https://docs.google.com/spreadsheets/d/1h__nE6vpOQXwsTZqeGu_jUEDcnhI2tzj9tOJ3uoBI7E/edit?usp=sharing)
-- Set Schema tables sheet id in apps script file "dist/framework.gs"
+- Set schema tables sheet id in apps script file "dist/framework.gs"
 `shids.schema = <schema tables sheet id>`
 
-### Insert Tables
-Highlight table name and header row and run macro "macroInsertNewTable"
-![Adding Tables](images/adding_tables.png)
+### Insert tables to schema sheet
+Highlight table name and header row and run macro "macroInsertNewTable". Note the underscore in the first row this is required to preserve formula and formatting and is not optional with 'macroInsertNewTable'.
+![Adding Tables](images/adding_table.png)
+
+## Important Note
+> The code explanation below assumes 'Patient History', 'Vitals' and 'Test' tables are inserted to schema sheet as in [this spreadsheet](https://docs.google.com/spreadsheets/d/126bt8HJNSdcoFGW_zbmjNOuwRuCX2msDluHlDHD-YME/edit?usp=sharing). After that all the demonstration code can be executed by running `demo` function from `example/code.gs` file
 
 ## Adding data
 
 ```
+  // load patient history table
+  // loader function accepts array of sheets ids and return SheetTable objects which have table models.
   const [sheet] = loader([1550146239])
-  const models = ST.models
-  // add data to table top
-  models['Team'].addFirst({ id : 1,  name : "Saad", role : "developer" })
-  models['Team'].addLast({ id : 2,  name : "Saad", role : "developer" })
+  const history = sheet.models['Patient History']
 
-  models['Team'].filter({ id : 2 }).addBelow({ id : 3,  name : "Saad", role : "developer" })
-  models['Team'].filter({ id : 2 }).addAbove({ id : 4,  name : "Saad", role : "developer" })
+  // add data to table top
+  history.addFirst(
+    { "name": "Patty O'Furniture.", "age": 25, "sex": "M", "date": "22-6-17", "complain": "Lorem ipsum dolor sit amet, co..." }
+  )
+  history.addLast(
+    { "name": "Paddy O'Furniture.", "age": 30, "sex": "F", "date": "22-6-18", "diagnosis": "Donec ut risus consectetur, pu..." }
+  )
+
+  // add data below or above selected row(s)
+  history.filter({ name: "Patty O'Furniture." }).addBelow(
+    { "name": "Aida Bugg.", "age": 33, "sex": "F", "date": "22-6-20", "complain": "Pellentesque aliquet libero ut..." }
+  )
+  history.filter({ name: "Patty O'Furniture." }).addAbove(
+    { "name": "Maureen Biologist.", "age": 40, "sex": "F", "date": "22-6-21", "complain": "Nullam vel odio nunc. Donec ve..." }
+  )
 
   // add methods also accept multiple row objects for example
-  models['Team'].addLast([
-    { id : 5,  name : "Saad", role : "developer"} ,
-    { id : 6,  name : "Saad", role : "developer"} ,
-    { id : 7,  name : "Saad", role : "developer"} 
+  history.addLast([
+    { "name": "Teri Dactyl.", "age": 50, "sex": "M", "date": "22-6-22", "complain": "Cras a porttitor nisi. Donec v..." },
+    { "name": "Peg Legge.", "age": 55, "sex": "F", "date": "22-6-23", "complain": "Nunc ornare orci sed massa fin..." },
+    { "name": "Allie Grater.", "age": 60, "sex": "M", "date": "22-6-24", "complain": "Vestibulum eget elit sed turpi..." }
   ])
 
-  // write to table
-  models['Team'].table.commit()
+  // commit changes to sheet
+  sheet.commit()
 
 ```
-![Adding](images/adding.png)
 
 ## Filtering
 
 ```
-// set model to point at all values
-models['Team'].all()
-// get values
-let values = models['Team'].value
+  // load patient history table
+  const [sheet] = loader([1550146239])
+  const history = sheet.models['Patient History']
 
-// filter functions return false if data is not found otherwise returns model object
-// values are then accessed with model's 'value' property
-models['Team'].filter({ name : "Saad", id : 3 })
-values = models['Team'].value
+  // set table model with all values
+  history.all()
+  print("values", history.value)
 
-// other filter functions
-models['Team'].or({ name : "Saad", id : 3 })
-models['Team'].and({ name : "Saad", id : 3 })
-models['Team'].not({ name : "Saad", id : 3 })
-models['Team'].nand({ name : "Saad", id : 3 }) // NAND logic
-models['Team'].nor({ name : "Saad", id : 3 }) // NOR logic
-models['Team'].greater({ id : 3 })
-models['Team'].less({ id : 3 })
+  // filter functions return false if data is not found otherwise returns model object
+  // values are then accessed with model's 'value' property
+  history.filter({ name: "Patty O'Furniture." })
+  print("Basic syntax", history.value)
 
-// 'and', 'or', 'not', 'nand' and 'nor' filter functions can also take arrays for example
-// the expression below translates to: name = 'Saad' or (id = 3 or id = 4)
-models['Team'].or({ name : "Saad", id : [3, 4] })
-// similary the expression below translates to: name = 'Saad' and (id = 3 or id = 4)
-models['Team'].and({ name : "Saad", id : [3, 4] })
+  // other filter functions
+  history.or({ name: "Patty O'Furniture.", age: 50 }); print("or", history.value)
+  history.and({ name: "Patty O'Furniture.", age: 50 }); print("and", history.value)
+  history.not({ name: "Patty O'Furniture.", age: 50 }); print("not", history.value)
+  history.nand({ name: "Patty O'Furniture.", age: 50 }); print("nand", history.value) // NAND logic
+  history.nor({ name: "Patty O'Furniture.", age: 50 }); print("nor", history.value) // NOR logic
+  history.greater({ age: 50 }); print("greater", history.value)
+  history.less({ age: 50 }); print("less", history.value)
 
-// 'greater' and 'less' functions take a second argument 'equal' of type 'bool'
-// to differentiate between operators '>' and '>=' and '<' and '<=' for example
-// the below expression translates to: id >= 3
-models['Team'].greater({ id : 3 }, true)
+  // 'and', 'or', 'not', 'nand' and 'nor' filter functions can also take arrays for example
+  // the expression below translates to: name = 'Patty O'Furniture.' or (id = 50 or id = 55)
+  history.or({ name: "Patty O'Furniture.", age: [50, 55] })
+  print("array", history.value)
+  // similary the expression below translates to: name = 'Patty O'Furniture.' and (id = 50 or id = 55)
+  history.and({ name: "Patty O'Furniture.", id: [50, 55] })
+  print("array", history.value)
+
+  // 'greater' and 'less' functions take a second argument 'equal' of type 'bool'
+  // to differentiate between operators '>' and '>=' and '<' and '<=' for example
+  // the below expression translates to: id >= 50
+  history.greater({ age: 50 }, true)
+  print("greater than equal to", history.value)
 
 ```
 
 ## Updating
 ```
-// set name to "Khan" for all rows with id greater than 3
-models['Team'].greater({ id : 3 }, true).set({ name : "Khan" })
+  const [sheet] = loader([1550146239])
+  const history = sheet.models['Patient History']
+  // set name to "Khan" for all rows with id greater than 50
+  history.greater({ age: 50 }, true).set({ name: "Khan" })
+  print("updating", history.value)
 ```
 
 
 ## Sorting
 ```
-// by default sort order is ascending
-models['Team'].sortBy('id')
-// to retrieve sorted values 
-let values = models['Team'].value
+  const [sheet] = loader([1550146239])
+  const history = sheet.models['Patient History']
 
-// to update table
-models['Team'].table.commit()
+  // by default sort order is ascending
+  history.sortBy('id')
 
-// to sort by order descending
-models['Team'].sortBy('id', 'desc')
+  // to sort by order descending
+  history.sortBy('id', 'desc')
 
-// to chain sortBy methods
-models['Team'].sortBy('id').sortBy('name')
+  // to chain sortBy methods
+  history.sortBy('id').sortBy('name')
+
+  // commit to google sheet
+  print("sorting", history.value)
 
 ```
 
@@ -110,24 +134,34 @@ values = history.greater({ id : 3 }, true).sortBy('id', 'desc').value
 
 ## Join
 ```
-models['Records'].addFirst([
-    { id : 3, item : "abc", description : "abc", qty : 1 },
-    { id : 4, item : "abc", description : "abc", qty : 1 }
-])
-let joined = models['Team'].join(models['Records']).on({ t : 'id', r : 'id' })
-// the expression above will return a new joined model with values:
-// [
-//     { "t.id" : 4, "t.name" : "Saad", "t.role" : "developer", "r.id" : 4, "r.item" : "abc", "r.description" : "abc", "r.qty" : 1 },
-//     { "t.id" : 3, "t.name" : "Saad", "t.role" : "developer", "r.id" : 3, "r.item" : "abc", "r.description" : "abc", "r.qty" : 1 }
-// ]
+  const [sheet] = loader([1550146239])
+  const history = sheet.models['Patient History']
+  const vitals = sheet.models['Vitals']
 
-// to join subset of data filter functions can be used for example the expression below will return 
-// a new joined model with values:
-// [
-//     { "t.id" : 4, "t.name" : "Saad", "t.role" : "developer", "r.id" : 4, "r.item" : "abc", "r.description" : "abc", "r.qty" : 1 },
-// ]
-models['Records'].filter({ id : 4 })
-joined = models['Team'].join(models['Records']).on({ t : 'id', r : 'id' })
+  // adding data to vitals model
+  vitals.addFirst([
+    { "pid": 1, "bp": "121 - 82", "pulse": 72, "temp": 98, "weight": 65 },
+    { "pid": 2, "bp": "118 - 85", "pulse": 73, "temp": 99, "weight": 68 },
+    { "pid": 3, "bp": "125 - 90", "pulse": 70, "temp": 98, "weight": 75 },
+    { "pid": 4, "bp": "120 - 80", "pulse": 65, "temp": 100, "weight": 80 },
+    { "pid": 5, "bp": "120 - 75", "pulse": 75, "temp": 101, "weight": 85 },
+    { "pid": 6, "bp": "110 - 65", "pulse": 80, "temp": 103, "weight": 90 },
+    { "pid": 7, "bp": "140 - 90", "pulse": 90, "temp": 97, "weight": 95 },
+    { "pid": 8, "bp": "120 - 90", "pulse": 65, "temp": 100, "weight": 100 }
+  ])
+  let joined = history.join(vitals)
+    // first key 'h' corresponds to history table field
+    // second field 'v' corresponds to vitals table field
+    // the resulting array of objects will have updated keys for example 'age' from history will be 'h.age'
+    // similary 'bp' from vitals will be 'v.bp'
+    .on({ h: 'id', v: 'pid' });
+  print("join", history.value)
+
+  // to join subset of data filter functions can be used for example the following will only join records
+  // where age is greater than 50
+  history.greater({ age: 50 })
+  joined = history.join(vitals).on({ h: 'id', v: 'pid' });
+  print("join subset", history.value)
 
 ```
 
@@ -198,19 +232,19 @@ jsonOut(directive, models)
 
   // updated directive
   directive = {
-    ID: { key: "h.id", filter: (joined) => joined.filter({ "h.id" : 1 }) },
+    ID: { key: "h.id", filter: (joined) => joined.filter({ "h.id": 1 }) },
     NameOfPatient: "h.name",
     Age: "h.age",
     Vitals: {
       BP: "v.bp",
       Pulse: "v.pulse",
       Temp: "t.temp",
-      Weight: { key: "v.weight", filter: (joined) => joined.filter({ "v.pid" : 1 }) }
+      Weight: { key: "v.weight", filter: (joined) => joined.filter({ "v.pid": 1 }) }
     }
   }
 
   sheet.models['Vitals'].addFirst({ "pid": 1, "bp": "121 - 82", "pulse": 72, "temp": 98, "weight": 65 })
-  let joined = sheet.models['Patient History'].join(sheet.models['Vitals']).on({ h : "id", v : "pid" })
+  let joined = sheet.models['Patient History'].join(sheet.models['Vitals']).on({ h: "id", v: "pid" })
   print("Nested", jsonOut(directive, joined))
 
   // request bodies nested object can also be arrays
@@ -241,7 +275,7 @@ jsonOut(directive, models)
     { "pid": 1, "name": "Basic Metabolic Panel" },
     { "pid": 1, "name": "Comprehensive Metabolic Panel" }
   ])
-  joined = sheet.models['Patient History'].join(sheet.models['Tests']).on({ h : "id", t : "pid" })
+  joined = sheet.models['Patient History'].join(sheet.models['Tests']).on({ h: "id", t: "pid" })
   print("Array", jsonOut(directive, joined))
 
   // directives also accept an operation attribute to transform filtered data
@@ -320,6 +354,7 @@ jsonIn(directive, models, response)
   // directives also accept an operation attribute to transform response bodies. 
   // see upated directive below for how an id will be assigned to 'Vitals' object.
   // nextMaxInteger is a generator function which comes with the framework
+  // 'all' method on a table model sets the pointer to point at all values
   const idGen = nextMaxInteger("id", sheet.models['Patient History'].all().value)
   directive = {
     NameOfPatient: { key: "name", model: "Patient History", 
