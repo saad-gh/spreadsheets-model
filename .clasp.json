@@ -1,0 +1,11 @@
+{
+    "scriptId":"1U2JHkX_OAwvp-BZpoMnwzjA5D-aZK9K2L4NdQMUMWFJfPnIybKK-dqPJ", 
+    "filePushOrder": [        
+        "dist/framework.js",
+        "testing/class.js",
+        "testing/data.js",
+        "testing/tests.js",
+        "example/data.js",
+        "example/code.js"
+    ]
+}

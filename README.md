@@ -1,44 +1,20 @@
 > Reduce and simplify business logic by accessing Google Sheet tables as object models
 
 ## Prerequisite
+- Files in dist folder in the order mentioned in .clasp.json need to be in the Apps Script project of Google Sheets.
+- Replace contents of appsscript.json with the one in this repo. By default  appsscript.json is hidden, can be set to visible from "Project Settings"
+- Add schema tables to a sheet manually as in [this sheet](https://docs.google.com/spreadsheets/d/1h__nE6vpOQXwsTZqeGu_jUEDcnhI2tzj9tOJ3uoBI7E/edit?usp=sharing)
+- Set Schema tables sheet id in apps script file "dist/framework.gs"
+`shids.schema = <schema tables sheet id>`
 
-Enable Sheets API from Advanced Google Services
-
-Add schema tables in a sheet
-
-![Schema Tables](images/Schema_Tables.png)
-
-Set Schema tables sheet id in apps script
-
-`CONFIG.SCHEMA_SHEET.sheetId = <schema tables sheet id>`
-
-## Insert Tables (Pending)
-
-```
-// Initialize SheetTables by passing a sheet id.
-// Sheet id should be of the Sheet where tables need to be inserted
-const ST = new SheetTables(1804062973)
-
-ST.insert({
-    // table name
-    name : "Records",
-    headers : ["id", "item", "description", "qty"]
-})
-
-ST.insert({
-    // table name
-    name : "Team",
-    headers : ["id", "name", "role" ]
-})
-
-```
-
-
+### Insert Tables
+Highlight table name and header row and run macro "macroInsertNewTable"
 ![Adding Tables](images/adding_tables.png)
 
 ## Adding data
 
 ```
+  const [sheet] = loader([1550146239])
   const models = ST.models
   // add data to table top
   models['Team'].addFirst({ id : 1,  name : "Saad", role : "developer" })
@@ -128,7 +104,7 @@ models['Team'].sortBy('id').sortBy('name')
 //     { id : 4, name : "Saad", role : "developer" },
 //     { id : 3, name : "Saad", role : "developer" }
 // ]
-values = models['Team'].greater({ id : 3 }, true).sortBy('id', 'desc').value
+values = history.greater({ id : 3 }, true).sortBy('id', 'desc').value
 
 ```
 
@@ -164,113 +140,124 @@ joined = models['Team'].join(models['Records']).on({ t : 'id', r : 'id' })
 
 #### Concept
 ```
-// example request body
+// required request body
 {
     ID : 1,
-    NameOfPerson : "Saad",
-    Role: "developer"
+    NameOfPatient : "Patty O'Furniture.",
+    Age: 25
 }
 
-// example model data for building request
+// but our table model contain this data with different field names
 {
     id : 1,
-    name : "Saad",
-    role: "developer"
+    name : "Patty O'Furniture.",
+    age: 25
 }
 
-// problem: model data cannot be passed as request body because keys are different
+// so the problem is that table model data cannot be passed directly as request body because keys are different
 
-// solution: use a directive to map request keys with model keys
+// solution is to use a directive to map request keys with table model keys
 {
     ID : "id",
-    NameOfPerson : "name",
-    Role : "role"
+    NameOfPatient : "name",
+    Age : "age"
 }
 
-// use jsonOut function to get the required request body
+// then use jsonOut function to get the required request body
 jsonOut(directive, models)
 ```
 
 #### Practical use
 ```
-// updated directive to point to the required model row
-let directive = {
-    ID : { key : "id", filter : (models) => models["Team"].filter({ id : 1 }) },
-    NameOfPerson : "name",
-    Role : "role"
-}
+  const [sheet] = loader([1550146239])
 
-// any key could have been used to point to the required row
-let directive = {
-    ID : "id",
-    NameOfPerson : { key : "name", filter : (models) => models["Team"].filter({ id : 1 }) },
-    Role : "role"
-}
+  // updated directive to point to the required model row
+  let directive = {
+    ID: { key: "id", filter: (models) => models["Patient History"].filter({ id: 1 }) },
+    NameOfPatient: "name",
+    Age: "age"
+  }
 
-// use jsonOut function to get the required request body
-let requestBody = jsonOut(directive, models)
+  // any key could have been used to point to the required row
+  directive = {
+    ID: "id",
+    NameOfPatient: { key: "name", filter: (models) => models["Patient History"].filter({ id: 1 }) },
+    Age: "age"
+  }
 
-// normally request bodies are nested objects
-// {
-//    ID : 1,
-//    NameOfPerson : "Saad",
-//    Role : "developer",
-//    Data : { Item : "abc", Desc : "abc" } 
-// }
+  // use jsonOut function to get the required request body
+  print("Basic syntax:", jsonOut(directive, sheet.models))
 
-// updated directive
-directive = {
-    ID : { key : "id", filter : (models) => models["Team"].filter({ id : 1 }) },
-    NameOfPerson : "name",
-    Role : "role",
-    Data : { 
-        Item : { key : "item", filter : (models) => models["Records"].filter({ id : 1 }) },
-        Desc : "description"
+  // normally request bodies are nested objects
+  // {
+  //    ID : 1,
+  //    NameOfPatient : "Patty O'Furniture.",
+  //    Age : 25,
+  //    Vitals : { BP : "abc", Pulse : "abc", Temp : "", Weight : "" } 
+  // }
+
+  // updated directive
+  directive = {
+    ID: { key: "h.id", filter: (joined) => joined.filter({ "h.id" : 1 }) },
+    NameOfPatient: "h.name",
+    Age: "h.age",
+    Vitals: {
+      BP: "v.bp",
+      Pulse: "v.pulse",
+      Temp: "t.temp",
+      Weight: { key: "v.weight", filter: (joined) => joined.filter({ "v.pid" : 1 }) }
     }
-}
+  }
 
-// request bodies nested object can also be arrays
-// {
-//    ID : 1,
-//    NameOfPerson : "Saad",
-//    Role : "developer",
-//    Data : [
-//        { Item : "abc", Desc : "abc" },
-//        { Item : "abc", Desc : "abc" }
-//    ]
-// }
+  sheet.models['Vitals'].addFirst({ "pid": 1, "bp": "121 - 82", "pulse": 72, "temp": 98, "weight": 65 })
+  let joined = sheet.models['Patient History'].join(sheet.models['Vitals']).on({ h : "id", v : "pid" })
+  print("Nested", jsonOut(directive, joined))
 
-// udpated directive. note the many attribute in nested directive.
-directive = {
-    ID : { key : "id", filter : (models) => models["Team"].filter({ id : 1 }) },
-    NameOfPerson : "name",
-    Role : "role",
-    Data : { 
-        Item : { key : "item", many : true, filter : (models) => models["Records"].filter({ id : 1 }) },
-        Desc : "description"
+  // request bodies nested object can also be arrays
+  // {
+  //    ID : 1,
+  //    NameOfPatient : "Patty O'Furniture.",
+  //    Age : 25,
+  //    Tests : [
+  //        { Name : "Complete Blood Count" },
+  //        { Name : "Basic Metabolic Panel" },
+  //        { Name : "Comprehensive Metabolic Panel" }
+  //    ]
+  // }
+
+  // udpated directive. note the many attribute in nested directive.
+  directive = {
+    ID: { key: "h.id", filter: (joined) => joined.filter({ "h.id": 1 }) },
+    NameOfPatient: "h.name",
+    Age: "h.age",
+    Tests: {
+      Name: { key: "t.name", many: true, filter: (joined) => joined.filter({ "h.id": 1 }) },
+      Id: "t.pid"
     }
-}
+  }
 
-// directives also accept an operation attribute to transform filtered data
-directive = {
-    ID : { key : "id", filter : (models) => models["Team"].filter({ id : 1 }), operation : (values) => values.forEach(row => row.name += " Khan" ) },
-    NameOfPerson : "name",
-    Role : "role"
-}
+  sheet.models['Tests'].addFirst([
+    { "pid": 1, "name": "Complete Blood Count" },
+    { "pid": 1, "name": "Basic Metabolic Panel" },
+    { "pid": 1, "name": "Comprehensive Metabolic Panel" }
+  ])
+  joined = sheet.models['Patient History'].join(sheet.models['Tests']).on({ h : "id", t : "pid" })
+  print("Array", jsonOut(directive, joined))
 
-// the directive above would produce the output
-// {
-//     ID : 1,
-//     NameOfPerson : "Saad Khan",
-//     Role: "developer"
-// }
-// 
-// from the input. Note the transformed value of "NameOfPerson" above
-// {
-//     id : 1,
-//     name : "Saad",
-//     role : "developer"
-// }
+  // directives also accept an operation attribute to transform filtered data
+  directive = {
+    ID: { key: "id", filter: (models) => models["Patient History"].filter({ id: 1 }), operation: (values) => values.map(row => row.name += " Oh Oh") },
+    NameOfPatient: "name",
+    Age: "age"
+  }
+  print("Operation", jsonOut(directive, sheet.models))
+
+  // the directive above would produce the output. Note the transformed value of "NameOfPatient"
+  // {
+  //     ID : 1,
+  //     NameOfPatient : "Patty O'Furniture. Khan",
+  //     Age: "age"
+  // }
 
 ```
 ### Responses
@@ -297,95 +284,88 @@ jsonIn(directive, models, response)
 ```
 #### Practical use
 ```
-// updated directive to point to the required model
-let directive = {
-    ID : { key : "id", model : "Team" },
-    NameOfPerson : "name",
-    Role : "developer"
-}
+  const [sheet] = loader([1550146239])
 
-// any key could have been used to point to the required model
-directive = {
-    ID : "id",
-    NameOfPerson : { key : "name", model : "Team" },
-    Role : "role"
-}
+  // updated directive to point to the required model
+  let directive = {
+    NameOfPatient: { key: "name", model: "Patient History" },
+    Age: "age"
+  }
 
-// normally response bodies are nested objects
-let response = {
-    ID : 1,
-    NameOfPerson : "Saad",
-    Role : "developer",
-    Data : { Item : "abc", Desc : "abc" } 
-}
+  // any key could have been used to point to the required model
+  directive = {
+    NameOfPatient: "name",
+    Age: { key: "age", model: "Patient History" },
+  }
 
-// updated directive
-directive = {
-    ID : { key : "id", model : "Team" },
-    NameOfPerson : "name",
-    Role : "developer",
-    Data : {
-        Item : { key : "item", model : "Records" },
-        Desc : "description"
+  // normally response bodies are nested objects
+  let response = {
+    NameOfPatient: "Patty O'Furniture.",
+    Age: 25,
+    Vitals: { "BP": "121 - 82", "Pulse": 72, "Temp": 98, "Weight": 65 }
+  }
+
+  // updated directive
+  directive = {
+    NameOfPatient: { key: "id", model: "Patient History" },
+    Age: "age",
+    Vitals: {
+      BP: { key: "bp", model: "Vitals" },
+      Pulse: "pulse",
+      Temp : "temp",
+      Weight : "weight"
     }
-}
+  }
 
-// use jsonIn function to insert the response body
-jsonIn(directive, models, response)
-
-// response bodies nested object can also be arrays
-response = {
-   ID : 1,
-   NameOfPerson : "Saad",
-   Role : "developer",
-   Data : [
-       { Item : "abc", Desc : "abc" },
-       { Item : "abc", Desc : "abc" }
-   ]
-}
-
-// updated directive. note the many attribute in nested directive.
-directive = {
-    ID : { key : "id", model : "Team" },
-    NameOfPerson : "name",
-    Role : "developer",
-    Data : {
-        Item : { key : "item", model : "Records", many : true },
-        Desc : "description"
+  // directives also accept an operation attribute to transform response bodies. 
+  // see upated directive below for how an id will be assigned to 'Vitals' object.
+  // nextMaxInteger is a generator function which comes with the framework
+  const idGen = nextMaxInteger("id", sheet.models['Patient History'].all().value)
+  directive = {
+    NameOfPatient: { key: "name", model: "Patient History", 
+      operation: (obj) => obj.Vitals.id = idGen.next().value },
+    Age: "age",
+    Vitals: {
+      id : "pid",
+      BP: { key: "bp", model: "Vitals" },
+      Pulse: "pulse",
+      Temp : "temp",
+      Weight : "weight"
     }
-}
+  }
 
-// directives also accept an operation attribute to transform response bodies
-directive = {
-    ID : { key : "id", model : "Team", operation : (obj) => obj.Data.forEach(item => item.id = obj.ID) },
-    NameOfPerson : "name",
-    Role : "role"
-    Data : {
-        id : { key : "id", model : "Records" },
-        Desc : "description",
-        Item : "item"
+  // use jsonIn function to populate table models
+  jsonIn(directive, sheet.models, response)
+  // update sheet with new data from response
+  // sheet.commit()
+
+  // response bodies nested object can also be arrays
+  response = {
+    NameOfPatient: "Patty O'Furniture.",
+    Age: 25,
+    Tests: [
+      { "Name": "Complete Blood Count" },
+      { "Name": "Basic Metabolic Panel" },
+      { "Name": "Comprehensive Metabolic Panel" }
+    ]
+  }
+
+  // updated directive below. note the many attribute in nested directive.
+  // assignId function to to assign ids to Test objects.
+  const assignId = obj => {
+    const pid = idGen.next().value
+    obj.Tests.forEach(t => t.id = pid)
+  }
+  directive = {
+    NameOfPatient: { key: "name", model: "Patient History", operation : assignId },
+    Age: "age",
+    Tests: {
+      id : "pid",
+      Name: { key: "name", model: "Tests", many: true } 
     }
-}
+  }
 
-// the directive above would transform the response from
-// {
-//    ID : 1,
-//    NameOfPerson : "Saad",
-//    Role : "developer",
-//    Data : [
-//        { Item : "abc", Desc : "abc" },
-//        { Item : "abc", Desc : "abc" }
-//    ]
-// }
-//
-// to below. Note the id key added to the nested object
-// {
-//    ID : 1,
-//    NameOfPerson : "Saad",
-//    Role : "developer",
-//    Data : [
-//        { id : 1, Item : "abc", Desc : "abc" },
-//        { id : 1, Item : "abc", Desc : "abc" }
-//    ]
-// }
+  jsonIn(directive, sheet.models, response)
+  // update sheet with new data from response
+  sheet.commit()
 ```

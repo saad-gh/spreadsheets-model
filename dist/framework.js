@@ -1,19 +1,9 @@
+//sheet ids object for convenience
 const shids = {}
-shids.schema = 1083321884
+shids.schema = 0
 
 var CONFIG = {
     SS: SpreadsheetApp.getActiveSpreadsheet(),
-    TESTING: true,
-    HEADER_ROW: 1,
-    COLORS: ['#d9d9d9', '#f3f3f3'],
-    BANDINGS : {
-      DEFAULT : {
-        rheader : null,
-        rfirst : '#d9d9d9',
-        rsecond : '#f3f3f3',
-        rfooter : null
-      }
-    },
     SCHEMA_SHEET :{
       sheetId : shids.schema,
       tables : [{
@@ -39,16 +29,6 @@ var CONFIG = {
           delete : "delete",
           warehouse : "warehouse"
         }
-      },{
-        tableName : "Destinations",
-        schema : {
-          name : "name",
-          app : "app",
-          spreadsheetId : "spreadsheetId",
-          sheetId : "sheetId",
-          tableName : "tableName",
-          email : "email"
-        }
       }],
       getTableConfigByName : function(name){
         return this.tables.find(table => table.tableName === name)
@@ -58,20 +38,15 @@ var CONFIG = {
       Model : Model,
       BypassStrictSchemaCheck : BypassStrictSchemaCheck,
       APIModel : APIModel
-    }},
-    DB: SpreadsheetApp.getActiveSpreadsheet() // could also be a JDBC connection
+    }}
   };
 
   CONFIG.SSID = CONFIG.SS.getId()
   
-  CONFIG.SHEETS = {};
-  CONFIG.SHEETS.OBJs = CONFIG.SS.getSheets();
-  CONFIG.SHEETS.MAP = CONFIG.SHEETS.OBJs.map(sheet => { return { id : sheet.getSheetId(), name : sheet.getName() } });
-  
-  function authorize(){
-    
-    
-  }
+  // For Authorization
+  // SpreadsheetApp
+  // Sheets
+  // UrlFetchApp
 
   class ssManagerError extends Error {
     constructor(e) {
@@ -140,7 +115,7 @@ Array.prototype.steps = function(steps, func){
       // schema sheet data range values
       { ids : [CONFIG.SCHEMA_SHEET.sheetId], spreadsheetId : spreadsheetId }
     ]
-    const requests = params.map(p => builder.get(p))
+    const requests = params.filter(p => p.ids !== undefined).map(p => builder.get(p))
   
     // trying requests
     let responses = undefined
@@ -162,6 +137,9 @@ Array.prototype.steps = function(steps, func){
      */
     params = { dataRange : pop(responses)[0].valueRange.values }
     const SM = new SchemaManager(params)
+    
+    // if no sheet ids are provided return schema manager object
+    if(ids === undefined) return SM
   
     /**
      * get sheet id from response
@@ -1158,7 +1136,7 @@ Array.prototype.steps = function(steps, func){
   
     // gets a table from schema sheet. Schema for all tables in schema sheet are hardcoded in Config.gs
     getSchemaTable(tableName = "Schemas", dataRangeValues = undefined){
-  
+
       const schemaTableConfig = CONFIG.SCHEMA_SHEET.getTableConfigByName(tableName)
   
       const table = new WritableTable(
@@ -1168,9 +1146,7 @@ Array.prototype.steps = function(steps, func){
             isLastRowTemplate : true
           },
   
-          model : schemaTableConfig.schema,
-  
-          // sheet : getSheetById(CONFIG.SS, CONFIG.SCHEMA_SHEET.sheetId),
+          model : new Model(schemaTableConfig.schema, true),
   
           sheetId : CONFIG.SCHEMA_SHEET.sheetId,
   
@@ -1215,7 +1191,7 @@ Array.prototype.steps = function(steps, func){
       const rng = SpreadsheetApp.getActiveRange()
   
        // TESTING
-      // const rng = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("components").getRange("A1:C2")
+      // const rng = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("tables").getRange("A10:D11")
   
       const values = rng.getValues()
       const sheet = rng.getSheet()
@@ -1269,8 +1245,6 @@ Array.prototype.steps = function(steps, func){
   
       this._propertiesTable.model.addLast({...params, sheetId : sheetId, tableName : tableName, groupRow : groupRow }).table.commit()
   
-      // if(destination !== undefined) this._destinationsTable.model.addLast({ name : destination, app : 'spreadsheet', sheetId : sheetId, tableName : tableName }).table.commit()
-  
     }
   
     deleteTable(){
@@ -1284,47 +1258,6 @@ Array.prototype.steps = function(steps, func){
       }
   
       tablesToDelete.del().table.commit()
-    }
-  }
-  
-  class WorkflowManager extends SchemaManager {
-    constructor(sheetId, params = undefined){
-      super(params)
-      this._sheetTables = new SheetTables(sheetId, { schemaTable : this._schemaTable, propertiesTable : this._propertiesTable })
-      this._workflowTables = this._sheetTables.tables
-    }
-  
-    insertTableKey(){
-  
-      const keys = CONFIG.SS.getActiveRange().getValues()[0]
-      // TESTING
-      // const keys = ['a', 'b', 'c']
-  
-      if(!keys.every(key => typeof key === "string")) throw new ssManagerError("Non string value found")
-  
-      this._workflowTables['table key'].model.addLast(
-  
-        keys.filter(key => key !== "")
-        .map(key => { return { key : key } })
-  
-      ).table.commit()
-  
-    }
-  
-    insertStates(){
-      const ranges = CONFIG.SS.getActiveRangeList().getRanges();
-  
-      ranges.forEach(range => {
-  
-        const tableName = range.getValue()
-  
-        if(typeof tableName !== "string") throw new ssManagerError("Non string value found")
-  
-        this._workflowTables['states'].model.addLast({ table_name : tableName })
-  
-      })
-  
-      this._workflowTables['states'].commit()
     }
   }
   
@@ -1622,7 +1555,7 @@ Array.prototype.steps = function(steps, func){
   }
   
   function macroInsertNewTable(){
-    new SchemaManager().insertNewTable()
+    new loader().insertNewTable()
   }
   
   function macroInsertNewTableParameters(){
@@ -1636,7 +1569,7 @@ Array.prototype.steps = function(steps, func){
     // Process the user's response.
     var button = result.getSelectedButton();
   
-    const SM = new SchemaManager()
+    const SM = loader()
     if(button == ui.Button.CLOSE || button == ui.Button.CANCEL) {
       SM.insertNewTable()
     } else {
@@ -1650,14 +1583,6 @@ Array.prototype.steps = function(steps, func){
   
       SM.insertNewTable({ isLastRowTemplate : isLastRowTemplate, model : model })
     }
-  }
-  
-  function macroInsertWorkflowStates(){
-    new WorkflowManager(1149096157).insertStates()
-  }
-  
-  function macroInsertWorkflowTableKey(){
-    new WorkflowManager(1149096157).insertTableKey()
   }
   
   function macroDeleteTable(){
@@ -2164,11 +2089,11 @@ Array.prototype.steps = function(steps, func){
       let newkey = undefined
       for(let key in this.schema){
         newkey = key.split(".").length > 1 ? key : `${a}.${key}`
-        schema[newkey] = this.schema[key]
+        schema[newkey] = typeof this.schema[key] !== 'string' ? this.schema[key].header : this.schema[key]
       }
       for(let key in this._join.schema){
         newkey = key.split(".").length > 1 ? key : `${b}.${key}`
-        schema[newkey] = this._join.schema[key]
+        schema[newkey] = typeof this._join.schema[key] !== 'string' ? this._join.schema[key].header : this._join.schema[key]
       }
   
       this._joined = new Model(schema)
@@ -3096,7 +3021,7 @@ Array.prototype.steps = function(steps, func){
       batchRequestsBuilder.updateLocation(sheetId, rowFirstData)
   
       // update formula request
-      if(this._isLastRowTemplate){
+      if(this._isLastRowTemplate && (this.tableFormulaA1 !== undefined)){
   
         this.tableFormulaA1.forEach((formula, columnIndex) => {
           if(formula !== "" && this.tableEnd > this.rowFirstData){

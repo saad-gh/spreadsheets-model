@@ -1,3 +1,688 @@
+function driver(){
+  // setTestTables();
+  const [TestTables] = loader([944181883]);
+  const tables = TestTables.tables;
+
+  [
+    tables['Table 3'],
+    tables['Placeholder']
+    // TABLE_1,
+    // TABLE_2,
+    // TABLE_3,
+    // TABLE_4,
+    // PlaceholderTable_,
+    // TABLE_5
+  ].forEach(M => test_v5_1(M))
+
+  // log(PlaceholderTable_.size)
+  // log(TABLE_1.size)
+}
+
+function test_v5_1(TABLE){
+
+  let test = new GasTap()
+  const tests = ['dataDuplication','addingempty','getting','adding','filtering','sorting','tablesize','uids','update','delete_','customcolumns','tproperties','getColumnValues','placeholder']
+  const skipper = tests.reduce((a,c) => a = {...a,[c] : true },{})
+
+  // skipper.dataDuplication = false
+  // skipper.addingempty = false
+  // skipper.getting = false
+  skipper.adding = false
+  // skipper.uids = false
+  // skipper.filtering = false
+  skipper.sorting = false
+  // skipper.update = false
+  // skipper.delete_ = false
+  // skipper.customcolumns = false
+  // skipper.tablesize = false
+  // skipper.tproperties = false
+  // skipper.getColumnValues = false
+  // skipper.placeholder = TABLE.name === 'Placeholder' ? false : true
+
+  test('MODEL: Adding', function(t){
+    if(skipper.adding) t.skip()
+
+    TABLE.model.all().del().table.commit(); SpreadsheetApp.flush();
+
+    // adding case
+    let i = 0;
+    let rows = [
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4
+    ]
+    
+    // adding in sequence of rows array
+    TABLE.model.addFirst(rows[0])
+    TABLE.model.get(rows[0]).addBelow(rows[1])
+    TABLE.model.addLast(rows[3])
+    TABLE.model.get(rows[3]).addAbove(rows[2])
+
+    // t.throws(TABLE.write,"checking writing outside table size")
+
+    TABLE.model.all()
+    t.equal(TABLE.model.value.length,rows.length,'checking count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
+    })
+
+    TABLE.commit()
+    SpreadsheetApp.flush(); 
+    let written = TABLE.getWrittenData(true)
+    t.equal(written.length,rows.length,'checking written count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,written[i],'checking written data')
+    })
+    
+    TABLE.model.all().del().table.commit()
+
+    // adding case multiple rows
+    const [multipleRows1, multipleRows2, multipleRows3, multipleRows4] = [
+      [singleRow1, singleRow2],
+      [singleRow2, singleRow3],
+      [singleRow3, singleRow4],
+      [singleRow4, singleRow5]
+    ]
+
+    rows = [
+      ...multipleRows1,
+      ...multipleRows2,
+      ...multipleRows3,
+      ...multipleRows4
+    ]
+
+    // adding in sequence of mulitple rows
+    TABLE.model.addFirst(multipleRows1)
+    TABLE.model.get(multipleRows1[1]).addBelow(multipleRows2)
+    TABLE.model.addLast(multipleRows4)
+    TABLE.model.get(multipleRows4[0]).addAbove(multipleRows3)
+
+    TABLE.model.all()
+    t.equal(TABLE.model.value.length,rows.length,'checking count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
+    })
+
+    TABLE.commit()
+    SpreadsheetApp.flush();
+    written = TABLE.getWrittenData(true)
+    t.equal(written.length,rows.length,'checking written count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,written[i],'checking written data')
+    })
+
+    // checking addLast on empty table
+    TABLE.model.all().del().table.commit()
+    rows = [
+      ...multipleRows1
+    ]
+
+    // adding in sequence of mulitple rows
+    TABLE.model.addLast(multipleRows1)
+
+    TABLE.model.all()
+    t.equal(TABLE.model.value.length,rows.length,'checking count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
+    })
+
+    TABLE.commit()
+    SpreadsheetApp.flush();
+    written = TABLE.getWrittenData(true)
+    t.equal(written.length,rows.length,'checking written count')
+    rows.map((r,i) => {
+      t.partialDeepEqual(r,written[i],'checking written data')
+    })
+
+    // invalid input
+    // neither array or object
+    t.throws(() =>  TABLE.model.addFirst(1) , 'invalid input error')
+
+    // invalid schema
+    t.throws(() =>  TABLE.model.addFirst({ abc : 3 }) , 'invalid input error')
+    
+  })
+
+  test('MODEL: Sorting', function(t){
+    // skipper.sorting = false
+    if(skipper.sorting) t.skip()
+
+    TABLE.model.all().del().table.commit()
+    
+    let rows = [{ sid: 'c', cid : 1 }, { sid: 'b', cid : 2 }, { sid: 'a', cid : 3 }]
+    TABLE.model.addFirst(rows)
+
+    TABLE.model.all()
+    // sort by numbers
+    TABLE.model.sortBy('cid')
+    rows.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking sorted numbers '))
+    TABLE.commit()
+    SpreadsheetApp.flush();
+    let written = TABLE.getWrittenData(true)
+    rows.forEach((r, i) => t.partialDeepEqual(r,written[i],'checking written sorted numbers '))
+
+    // sort by characters
+    TABLE.model.sortBy('sid')
+    rows.reverse().forEach((r, i) => t.partialDeepEqual(r, TABLE.model.value[i],'checking sorted chars'))
+    TABLE.commit()
+    SpreadsheetApp.flush();
+    written = TABLE.getWrittenData(true)
+    rows.forEach((r, i) => t.partialDeepEqual(r,written[i],'checking written sorted numbers '))
+    
+    TABLE.model.all().del().table.commit()
+
+    rows = [
+      { sid: 'a', cid : 3 }, { sid: 'b', cid : 5 }, { sid: 'a', cid : 1 },
+      { sid: 'b', cid : 6 }, { sid: 'a', cid : 2 }, { sid: 'b', cid : 4 },
+      { sid: 'c', cid : 9 }, { sid: 'c', cid : 8 }, { sid: 'c', cid : 7 }
+    ]
+
+    TABLE.model.addFirst(rows)
+
+    TABLE.commit()
+    let filter = { sid : 'b' }
+    TABLE.model.filter(filter).sortBy('cid')
+    let sorted = rows.filter((r => r.sid === filter.sid )).sort((a,b) => a.cid - b.cid)
+    sorted.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking data'))
+
+    TABLE.commit()
+
+    // sorting by multiple fields
+    sorted = rows.sort(compareValues('sid','asc')).sort(compareValues('cid','asc','sid'))
+    TABLE.model.all()
+    TABLE.model.sortBy('sid').sortBy('cid')
+    sorted.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking data'))
+
+    TABLE.commit()
+  })
+
+  // TODO: MODEL.getWrittenData(true); MODEL.model.all(); TABLE.commit(); doesn't check duplicate uid values
+  test('MODEL: Custom Columns', function(t){
+    if(skipper.customcolumns) return
+
+    // developing case
+    TABLE_1.model.all().del().table.commit(); SpreadsheetApp.flush()
+    TABLE_1.tablFormulaR1C1 = undefined
+    TABLE_1.tablFormulaA1 = undefined
+    TABLE_1.model.addFirst(singleRow1); 
+    
+    TABLE_1.commit(); SpreadsheetApp.flush();
+    const map = [
+      // columns after custom columns
+      ["del"],
+      // respective custom columns
+      ["total"],
+      // respective custom column formula template
+      ["I#*J#"]
+    ]
+    insertCustomColumns(map, TABLE_1, true)
+    SpreadsheetApp.flush()
+    TABLE_1.getWrittenData(true)
+
+    TABLE_1.model.addFirst(singleRow2); TABLE_1.commit(); SpreadsheetApp.flush();
+
+    
+    TABLE_1.model.get(singleRow1).addBelow(singleRow3); TABLE_1.commit(); SpreadsheetApp.flush();
+    TABLE_1.model.addLast(singleRow4); TABLE_1.commit(); SpreadsheetApp.flush();
+    TABLE_1.model.get(singleRow4).addAbove(singleRow5); TABLE_1.commit(); SpreadsheetApp.flush();
+
+    let testData = [
+      singleRow2,
+      singleRow1,
+      singleRow3,
+      singleRow5,
+      singleRow4
+    ]
+
+    // get data updated by formulas
+    SpreadsheetApp.flush();
+    TABLE_1.getWrittenData(true)
+    let tableData = TABLE_1.model.all().value
+    t.ok(tableData.every((r,i) => {
+      return r.custom_col_10 === testData[i].qty_ctns * testData[i].qty_per_ctn
+    }), 'checking data')
+
+    // Test preserving formula on clear table
+    TABLE_1.model.all().del().table.commit()
+    TABLE_1.model.addFirst(singleRow1); TABLE_1.commit()
+
+    // get data updated by formulas
+    SpreadsheetApp.flush();
+    TABLE_1.getWrittenData(true)
+    t.equal(singleRow1.qty_ctns * singleRow1.qty_per_ctn,TABLE_1.model.get(singleRow1).value[0].custom_col_10,'checking preserved formula after table clear')
+
+    // Test formula after Ops
+    TABLE_1.model.all().del().table.commit()
+    TABLE_1.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5,
+      { ...singleRow2, ['type'] : 'b2c' },
+      { ...singleRow1, ['type'] : 'b2c' }
+    ]); TABLE_1.commit()
+
+    TABLE_1.model.filter( { type : 'b2c' } ).sortBy('cid'); TABLE_1.commit()
+    // get data updated by formulas
+    SpreadsheetApp.flush();
+    TABLE_1.getWrittenData(true)
+    tableData = TABLE_1.model.all().value
+    testData = [
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5,
+      { ...singleRow1, ['type'] : 'b2c' },
+      { ...singleRow2, ['type'] : 'b2c' }
+    ]
+
+    t.ok(tableData.every((r,i) => {
+      return r.custom_col_10 === testData[i].qty_ctns * testData[i].qty_per_ctn
+    }), 'checking data')
+  })
+
+  test('TABLE: Data Duplication', function(t){
+    if(skipper.dataDuplication) t.skip()
+
+    TABLE.model.filter(filterCriteria1)
+    TABLE.model.addLast(row15)
+    TABLE.model.all()
+
+    TABLE.model.filter(filterCriteria2)
+    TABLE.model.set(row16)
+
+    TABLE.commit()
+
+    // TABLE.model.filter(filterCriteria2)
+    // TABLE.model.set(row16)
+
+    // TABLE.model.filter(filterCriteria1)
+    // TABLE.model.addLast(row15)
+
+    // TABLE.commit()
+  })
+
+  test('MODEL: Delete',function(t){
+    if(skipper.delete_) return
+
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2
+    ])
+    TABLE.commit()
+
+    TABLE.model.get(singleRow3)
+    //   // TODO: if del function is updated to execute on write 
+    TABLE.model.del(); TABLE.commit()
+    t.notOk(TABLE.model.get(singleRow3),'checking deleted data')
+    SpreadsheetApp.flush();
+    TABLE.getWrittenData(true)
+    t.notOk(TABLE.model.get(singleRow3),'checking deleted data on written')
+
+    TABLE.model.filter({ sid : 2 })
+    //   // TODO: if del function is updated to execute on write 
+    TABLE.model.del(); TABLE.commit()
+    t.notOk(TABLE.model.filter({ sid : 2 }),'checking deleted data')
+    SpreadsheetApp.flush();
+    TABLE.getWrittenData(true)
+    t.notOk(TABLE.model.filter({ sid : 2 }),'checking deleted data on written')
+
+    TABLE.model.addLast([
+      { ...singleRow1, ['type'] : 'b2c', ['warehouse'] : 'spirit' },
+      { ...singleRow2, ['type'] : 'b2c' }
+    ])
+    TABLE.commit()
+    TABLE.model.filter( { type : 'b2c' } ).sortBy('cid').get( { warehouse : 'spirit' } )
+    //   // TODO: if del function is updated to execute on write 
+    TABLE.model.del(); TABLE.commit()
+    t.notOk(TABLE.model.get( { warehouse : 'spirit' } ), 'checking deleted data')
+    SpreadsheetApp.flush();
+    TABLE.getWrittenData(true)
+    t.notOk(TABLE.model.get( { warehouse : 'spirit' } ), 'checking deleted data on written')
+
+    TABLE.model.get({ 'sid' : 4 }).del()
+    t.throws(() => { TABLE.model.get({ 'sid' : 5 }).del() }, 'trying more than one delete request')
+    TABLE.model._reset()
+  })
+
+  test('MODEL: Placeholder',function(t){
+    if(skipper.placeholder) t.skip()
+    const testingTablesSheet = getSheetById(CONFIG.SS, 944181883)
+    SpreadsheetApp.flush();
+    TABLE = new WritableTable(
+      {
+        table : {
+          name : 'Placeholder',
+          groupRow : false
+        }
+        , model : SCHEMAS.Placeholder
+
+        , sheet : testingTablesSheet
+      }
+    )
+    TABLE_UIDs.next = TABLE
+    TABLE.next = TABLE_5
+
+    TABLE.model.all().del().table.commit(); SpreadsheetApp.flush()
+
+    // trying to initialize a non placeholder table
+    t.throws2(() => {
+      new WritableTable(
+        {
+          table : {
+            name : 'Placeholder',
+            groupRow : false,
+            isLastRowTemplate : true
+          }
+          , model : SCHEMAS.Placeholder
+          
+          , sheet : testingTablesSheet
+        }
+      )
+    },'No placeholder found','Trying to initialize a non placeholder table')
+    TABLE.model.addFirst({ rid : "_" })
+    TABLE.commit(); SpreadsheetApp.flush();
+
+    // attaching placeholder table class to model for the rest of the tests
+    TABLE = new WritableTable(
+      {
+        table : {
+          name : 'Placeholder',
+          groupRow : false,
+          isLastRowTemplate : true
+        }
+        , model : SCHEMAS.Placeholder
+
+        , sheet : testingTablesSheet
+      }
+    )
+
+    TABLE_UIDs.next = TABLE
+    TABLE.next = TABLE_5
+  })
+
+  test('MODEL: UID columns', function(t){
+    if(skipper.uids) t.skip()
+
+    TABLE_UIDs.model.all().del().table.commit()  
+    
+    TABLE_UIDs.model.addFirst(singleRow1)
+    const row1 = JSON.parse(JSON.stringify(singleRow1))
+    
+    row1.sid = getNextInteger('sid',TABLE_UIDs.model.all().value)
+    row1.cid = getNextInteger('cid',TABLE_UIDs.model.all().value)
+    row1.rid = getNextInteger('rid',TABLE_UIDs.model.all().value)
+
+    t.throws(() => TABLE_UIDs.model.addFirst(row1),'Trying to add primary key manually')
+    t.throws(() => TABLE_UIDs.model.get(1).set({ rid : 1 }), 'Trying to update primary key')
+
+    t.equal(row1.sid, singleRow1.sid + 1,'get next max id')
+    t.equal(row1.cid, singleRow1.cid + 1,'get next max id')
+    t.throws(() => TABLE_UIDs.model.addFirst(singleRow1),'Trying to add duplicate ids')
+    TABLE_UIDs.model.addFirst(singleRow2)
+    t.throws(() => TABLE_UIDs.model.get({ cid : singleRow2.cid }).set({ cid : singleRow1.cid }), 'Trying to update unique id column with duplicate value')
+
+    TABLE_UIDs.model.all()
+    TABLE_UIDs.commit()
+
+    TABLE_UIDs.model.all()
+    t.throws(TABLE_UIDs.write, 'Trying duplicating PKs by re-writing')
+  })
+
+  test('TABLE: Property',function(t){
+    if(skipper.tproperties) t.skip()
+
+    TABLE_3.model._reset()
+
+    const error = [
+      'Table header and schemas are not matching!',
+      'Non string type header value found. Check group row property',
+      'Table.values empty. Try checking group row property',
+      'Headers not found. Try checking group row property'
+    ]
+
+    const invalidProp = {
+      model : SCHEMAS.TABLE_3,
+      sheet: testingTablesSheet,
+      table: {
+        name: 'Table 3',
+        groupRow: false
+      }
+    }
+    // test with clear table
+    TABLE_3.model.all().del().table.commit()
+    SpreadsheetApp.flush();
+    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Group row false in group row table')
+
+    // test with data in table
+    TABLE_3.model.addFirst(singleRow1); TABLE_3.commit()
+    SpreadsheetApp.flush();
+    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Group row false in group row table')
+
+    // invalid group row prop
+    invalidProp.model = SCHEMAS.TABLE_4
+    invalidProp.table.name = 'Table 4'
+    invalidProp.table.groupRow = true
+    // test with clear table
+    TABLE_4.model.all().del().table.commit()
+    SpreadsheetApp.flush();
+    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Trying to specify group row in non group row table')
+    // test with data in table
+    TABLE_4.model.addFirst(singleRow1); TABLE_4.commit()
+    SpreadsheetApp.flush();
+    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Trying to specify group row in non group row table')
+  })
+
+  test('MODEL: Getting', function(t){
+    if(skipper.getting) t.skip()
+
+    TABLE.model.all().del().table.commit()
+
+    TABLE.model.addFirst(multipleRows)
+    TABLE.commit()
+    t.ok(isObject(TABLE.model.get(multipleRows[0]).value[0]),"getting by PK")
+    t.ok(isObject(TABLE.model.get({ sid : 1, cid : 13 }).value[0]), "getting by object")
+    
+    t.throws(() => TABLE.model.get({ type : 'b2b' }), "Trying to get more then one record")
+
+    const invalidQuery = { abc : '2' }
+    t.throws(() =>  TABLE.model.get(invalidQuery), "invalid query error")
+  })
+
+  test('MODEL: Filtering', function(t) {
+    // skipper.filtering = false
+    if(skipper.filtering) t.skip()
+    TABLE.model.all().del().table.commit()
+
+    // adding five more rows to differentiate from filter case
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+
+    // filter case
+    const type = "b2c"
+    const rows = [
+      {...singleRow1 , ['type'] : type },
+      {...singleRow2 , ['type'] : type }
+    ]
+
+    TABLE.model.addFirst(rows)
+    TABLE.commit()
+    TABLE.model.filter({ type : type })
+    rows.map((r,i) => {
+      t.partialDeepEqual(r, TABLE.model.value[i], "checking data with filter case")
+    })
+
+    // case trying to write filtered data
+    t.throws(TABLE.write,"trying to write filtered data")
+
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    TABLE.model.addFirst(rows)
+    TABLE.model.filter({ type : type })
+    t.throws(TABLE.write,"trying to write filtered data")
+
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    TABLE.model.addLast(rows)
+    TABLE.model.filter({ type : type })
+    t.throws(TABLE.write,"trying to write filtered data")
+
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    TABLE.model.get(singleRow3).addAbove(rows)
+    TABLE.model.filter({ type : type })
+    t.throws(TABLE.write,"trying to write filtered data")
+
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    TABLE.model.get(singleRow3).addBelow(rows)
+    TABLE.model.filter({ type : type })
+    t.throws(TABLE.write,"trying to write filtered data")
+
+  })
+
+  test('MODEL: Update',function(t){
+    if(skipper.update) return
+    TABLE.model.all().del().table.commit()
+    TABLE.model.addFirst([
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4,
+      singleRow5
+    ])
+    TABLE.commit()
+    const singleRow1Changed = {
+      ...singleRow1,
+      ['type'] : 'b2c'
+    };
+    const singleRow2Changed = {
+      ...singleRow2,
+      ['type'] : 'b2c',
+      ['warehouse'] : 'spirit'
+    };
+
+    TABLE.model.get(singleRow1).set({ type : 'b2c' })
+    TABLE.commit()
+    t.equal(TABLE.model.get(singleRow1Changed).value[0].type, 'b2c','checking data')
+
+    TABLE.model.get(singleRow2).set({ type : 'b2c', warehouse : 'spirit' })
+    TABLE.commit()
+    t.equal(TABLE.model.get(singleRow2Changed).value[0].type, 'b2c','checking data')
+    t.equal(TABLE.model.get(singleRow2Changed).value[0].warehouse, 'spirit','checking data')
+
+    TABLE.model.filter({ type : 'b2b' }).set({ type : 'b2c' })
+    TABLE.commit()
+    t.equal(TABLE.model.filter({ type : 'b2c' }).value.length, 5, 'checking data')
+  })
+
+  test('MODEL: Table Size',function(t){
+    if(skipper.tablesize) t.skip()
+
+    TABLE.model.all().del().table.commit()
+    t.equal(TABLE.size, 0, 'checking count')
+
+    TABLE.model.addFirst([singleRow1]); TABLE.commit()
+
+    t.equal(TABLE.size, 1,'checking count')
+
+    TABLE.model.addFirst([singleRow1]); TABLE.commit()
+    t.equal(TABLE.size, 2,'checking count')   
+  })
+
+  test('MODEL: getColumnValue', function(t){
+    if(skipper.getColumnValues) t.skip()
+
+    const rows = [
+      singleRow1,
+      singleRow2,
+      singleRow3,
+      singleRow4
+    ]
+    TABLE.model.addFirst(rows)
+    const valuesModel = TABLE.model.all().getColumnValues('sid')
+    const values =  rows.map(r => r['sid'])
+    values.map((v, i) => t.equal(v, valuesModel[i],'checking data'))
+
+    t.throws(() => TABLE.model.all().getColumnValues('abc'), 'trying field not in schema')
+
+    TABLE.model.all().del().table.commit()
+    t.notOk(TABLE.model.all().getColumnValues('sid').length, 'trying to get field from empty table')
+  })
+
+  test('MODEL: Placeholder',function(t){
+    if(skipper.placeholder) t.skip()
+    const testingTablesSheet = getSheetById(CONFIG.SS, 944181883)
+    TABLE.model.all().del().table.commit()
+
+    // attaching table class to check if placeholder is still preserved
+    TABLE = new WritableTable(
+      {
+        table : {
+          name : 'Placeholder',
+          groupRow : false
+        }
+        , model : SCHEMAS.Placeholder
+        , sheet : testingTablesSheet
+      }
+    )
+
+    TABLE_UIDs.next = TABLE
+    TABLE.next = TABLE_5
+    SpreadsheetApp.flush();
+    TABLE.getWrittenData(true)
+    t.ok(TABLE.model.get({ rid : '_' }).value.length,'checking data')
+  })
+
+  test.finish()
+}
+
 function test_StateDataManager(){
   const transitions = [
     { name: 'melt',     from: 'solid',  to: 'liquid' },
@@ -152,19 +837,6 @@ function test_delete_table(){
 }
 
 function test_json_to_model_and_back(){
-  // allowed json structure
-  // const json = {
-  //   "key1" : "tableKey_1",
-  //   "key3" : "tableKey_3",
-  //   "key2" : [
-  //     { "key1" : "tableKey_1","key2" : { "key1" : "tableKey_1"} },
-  //     { "key1" : "tableKey_2","key2" : [{ "key1" : "tableKey_2"}] },
-  //     { "key1" : "tableKey_3","key2" : [{ "key1" : "tableKey_3"}, { "key1" : "tableKey_4"}] }
-  //   ],
-  //   "key5" : { "key1" : "taleKey_1", "key2" : { "key1" : "tableKey_5" } },
-  //   "key6" : { "key1" : "tableKey_1", "key2":"tableKey_2" },
-  //   "key7" : { "key1" : "tableKey_1", "key2" : { "key1" : "tableKey_1" } },
-  // }
 
   const json = {
     "key1" : "tableKey_1",
@@ -1775,26 +2447,6 @@ const logTimeDiff = (function (){
   }
 })()
 
-function driver(){
-  // setTestTables();
-  const [TestTables] = loader([944181883]);
-  const tables = TestTables.tables;
-
-  [
-    tables['Table 3'],
-    tables['Placeholder']
-    // TABLE_1,
-    // TABLE_2,
-    // TABLE_3,
-    // TABLE_4,
-    // PlaceholderTable_,
-    // TABLE_5
-  ].forEach(M => test_v5_1(M))
-
-  // log(PlaceholderTable_.size)
-  // log(TABLE_1.size)
-}
-
 
 // batch requests delete
 function helper9(){
@@ -1834,669 +2486,4 @@ function test_BRB(){
   brb.deleteRequest(1)
   brb.updateLocation(111, 5)
   log(JSON.stringify(brb.batchRequests))
-}
-
-function test_v5_1(TABLE){
-
-  let test = new GasTap()
-  const tests = ['dataDuplication','addingempty','getting','adding','filtering','sorting','tablesize','uids','update','delete_','customcolumns','tproperties','getColumnValues','placeholder']
-  const skipper = tests.reduce((a,c) => a = {...a,[c] : true },{})
-
-  // skipper.dataDuplication = false
-  // skipper.addingempty = false
-  // skipper.getting = false
-  skipper.adding = false
-  // skipper.uids = false
-  // skipper.filtering = false
-  skipper.sorting = false
-  // skipper.update = false
-  // skipper.delete_ = false
-  // skipper.customcolumns = false
-  // skipper.tablesize = false
-  // skipper.tproperties = false
-  // skipper.getColumnValues = false
-  // skipper.placeholder = TABLE.name === 'Placeholder' ? false : true
-
-  test('MODEL: Adding', function(t){
-    if(skipper.adding) t.skip()
-
-    TABLE.model.all().del().table.commit(); SpreadsheetApp.flush();
-
-    // adding case
-    let i = 0;
-    let rows = [
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4
-    ]
-    
-    // adding in sequence of rows array
-    TABLE.model.addFirst(rows[0])
-    TABLE.model.get(rows[0]).addBelow(rows[1])
-    TABLE.model.addLast(rows[3])
-    TABLE.model.get(rows[3]).addAbove(rows[2])
-
-    // t.throws(TABLE.write,"checking writing outside table size")
-
-    TABLE.model.all()
-    t.equal(TABLE.model.value.length,rows.length,'checking count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
-    })
-
-    TABLE.commit()
-    SpreadsheetApp.flush(); 
-    let written = TABLE.getWrittenData(true)
-    t.equal(written.length,rows.length,'checking written count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,written[i],'checking written data')
-    })
-    
-    TABLE.model.all().del().table.commit()
-
-    // adding case multiple rows
-    const [multipleRows1, multipleRows2, multipleRows3, multipleRows4] = [
-      [singleRow1, singleRow2],
-      [singleRow2, singleRow3],
-      [singleRow3, singleRow4],
-      [singleRow4, singleRow5]
-    ]
-
-    rows = [
-      ...multipleRows1,
-      ...multipleRows2,
-      ...multipleRows3,
-      ...multipleRows4
-    ]
-
-    // adding in sequence of mulitple rows
-    TABLE.model.addFirst(multipleRows1)
-    TABLE.model.get(multipleRows1[1]).addBelow(multipleRows2)
-    TABLE.model.addLast(multipleRows4)
-    TABLE.model.get(multipleRows4[0]).addAbove(multipleRows3)
-
-    TABLE.model.all()
-    t.equal(TABLE.model.value.length,rows.length,'checking count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
-    })
-
-    TABLE.commit()
-    SpreadsheetApp.flush();
-    written = TABLE.getWrittenData(true)
-    t.equal(written.length,rows.length,'checking written count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,written[i],'checking written data')
-    })
-
-    // checking addLast on empty table
-    TABLE.model.all().del().table.commit()
-    rows = [
-      ...multipleRows1
-    ]
-
-    // adding in sequence of mulitple rows
-    TABLE.model.addLast(multipleRows1)
-
-    TABLE.model.all()
-    t.equal(TABLE.model.value.length,rows.length,'checking count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,TABLE.model.value[i],'checking data')
-    })
-
-    TABLE.commit()
-    SpreadsheetApp.flush();
-    written = TABLE.getWrittenData(true)
-    t.equal(written.length,rows.length,'checking written count')
-    rows.map((r,i) => {
-      t.partialDeepEqual(r,written[i],'checking written data')
-    })
-
-    // invalid input
-    // neither array or object
-    t.throws(() =>  TABLE.model.addFirst(1) , 'invalid input error')
-
-    // invalid schema
-    t.throws(() =>  TABLE.model.addFirst({ abc : 3 }) , 'invalid input error')
-    
-  })
-
-  test('MODEL: Sorting', function(t){
-    // skipper.sorting = false
-    if(skipper.sorting) t.skip()
-
-    TABLE.model.all().del().table.commit()
-    
-    let rows = [{ sid: 'c', cid : 1 }, { sid: 'b', cid : 2 }, { sid: 'a', cid : 3 }]
-    TABLE.model.addFirst(rows)
-
-    TABLE.model.all()
-    // sort by numbers
-    TABLE.model.sortBy('cid')
-    rows.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking sorted numbers '))
-    TABLE.commit()
-    SpreadsheetApp.flush();
-    let written = TABLE.getWrittenData(true)
-    rows.forEach((r, i) => t.partialDeepEqual(r,written[i],'checking written sorted numbers '))
-
-    // sort by characters
-    TABLE.model.sortBy('sid')
-    rows.reverse().forEach((r, i) => t.partialDeepEqual(r, TABLE.model.value[i],'checking sorted chars'))
-    TABLE.commit()
-    SpreadsheetApp.flush();
-    written = TABLE.getWrittenData(true)
-    rows.forEach((r, i) => t.partialDeepEqual(r,written[i],'checking written sorted numbers '))
-    
-    TABLE.model.all().del().table.commit()
-
-    rows = [
-      { sid: 'a', cid : 3 }, { sid: 'b', cid : 5 }, { sid: 'a', cid : 1 },
-      { sid: 'b', cid : 6 }, { sid: 'a', cid : 2 }, { sid: 'b', cid : 4 },
-      { sid: 'c', cid : 9 }, { sid: 'c', cid : 8 }, { sid: 'c', cid : 7 }
-    ]
-
-    TABLE.model.addFirst(rows)
-
-    TABLE.commit()
-    let filter = { sid : 'b' }
-    TABLE.model.filter(filter).sortBy('cid')
-    let sorted = rows.filter((r => r.sid === filter.sid )).sort((a,b) => a.cid - b.cid)
-    sorted.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking data'))
-
-    TABLE.commit()
-
-    // sorting by multiple fields
-    sorted = rows.sort(compareValues('sid','asc')).sort(compareValues('cid','asc','sid'))
-    TABLE.model.all()
-    TABLE.model.sortBy('sid').sortBy('cid')
-    sorted.forEach((r, i) => t.partialDeepEqual(r,TABLE.model.value[i],'checking data'))
-
-    TABLE.commit()
-  })
-
-  // TODO: MODEL.getWrittenData(true); MODEL.model.all(); TABLE.commit(); doesn't check duplicate uid values
-  test('MODEL: Custom Columns', function(t){
-    if(skipper.customcolumns) return
-
-    // developing case
-    TABLE_1.model.all().del().table.commit(); SpreadsheetApp.flush()
-    TABLE_1.tablFormulaR1C1 = undefined
-    TABLE_1.tablFormulaA1 = undefined
-    TABLE_1.model.addFirst(singleRow1); 
-    
-    TABLE_1.commit(); SpreadsheetApp.flush();
-    const map = [
-      // columns after custom columns
-      ["del"],
-      // respective custom columns
-      ["total"],
-      // respective custom column formula template
-      ["I#*J#"]
-    ]
-    insertCustomColumns(map, TABLE_1, true)
-    SpreadsheetApp.flush()
-    TABLE_1.getWrittenData(true)
-
-    TABLE_1.model.addFirst(singleRow2); TABLE_1.commit(); SpreadsheetApp.flush();
-
-    
-    TABLE_1.model.get(singleRow1).addBelow(singleRow3); TABLE_1.commit(); SpreadsheetApp.flush();
-    TABLE_1.model.addLast(singleRow4); TABLE_1.commit(); SpreadsheetApp.flush();
-    TABLE_1.model.get(singleRow4).addAbove(singleRow5); TABLE_1.commit(); SpreadsheetApp.flush();
-
-    let testData = [
-      singleRow2,
-      singleRow1,
-      singleRow3,
-      singleRow5,
-      singleRow4
-    ]
-
-    // get data updated by formulas
-    SpreadsheetApp.flush();
-    TABLE_1.getWrittenData(true)
-    let tableData = TABLE_1.model.all().value
-    t.ok(tableData.every((r,i) => {
-      return r.custom_col_10 === testData[i].qty_ctns * testData[i].qty_per_ctn
-    }), 'checking data')
-
-    // Test preserving formula on clear table
-    TABLE_1.model.all().del().table.commit()
-    TABLE_1.model.addFirst(singleRow1); TABLE_1.commit()
-
-    // get data updated by formulas
-    SpreadsheetApp.flush();
-    TABLE_1.getWrittenData(true)
-    t.equal(singleRow1.qty_ctns * singleRow1.qty_per_ctn,TABLE_1.model.get(singleRow1).value[0].custom_col_10,'checking preserved formula after table clear')
-
-    // Test formula after Ops
-    TABLE_1.model.all().del().table.commit()
-    TABLE_1.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5,
-      { ...singleRow2, ['type'] : 'b2c' },
-      { ...singleRow1, ['type'] : 'b2c' }
-    ]); TABLE_1.commit()
-
-    TABLE_1.model.filter( { type : 'b2c' } ).sortBy('cid'); TABLE_1.commit()
-    // get data updated by formulas
-    SpreadsheetApp.flush();
-    TABLE_1.getWrittenData(true)
-    tableData = TABLE_1.model.all().value
-    testData = [
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5,
-      { ...singleRow1, ['type'] : 'b2c' },
-      { ...singleRow2, ['type'] : 'b2c' }
-    ]
-
-    t.ok(tableData.every((r,i) => {
-      return r.custom_col_10 === testData[i].qty_ctns * testData[i].qty_per_ctn
-    }), 'checking data')
-  })
-
-  test('TABLE: Data Duplication', function(t){
-    if(skipper.dataDuplication) t.skip()
-
-    TABLE.model.filter(filterCriteria1)
-    TABLE.model.addLast(row15)
-    TABLE.model.all()
-
-    TABLE.model.filter(filterCriteria2)
-    TABLE.model.set(row16)
-
-    TABLE.commit()
-
-    // TABLE.model.filter(filterCriteria2)
-    // TABLE.model.set(row16)
-
-    // TABLE.model.filter(filterCriteria1)
-    // TABLE.model.addLast(row15)
-
-    // TABLE.commit()
-  })
-
-  test('MODEL: Delete',function(t){
-    if(skipper.delete_) return
-
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2
-    ])
-    TABLE.commit()
-
-    TABLE.model.get(singleRow3)
-    //   // TODO: if del function is updated to execute on write 
-    TABLE.model.del(); TABLE.commit()
-    t.notOk(TABLE.model.get(singleRow3),'checking deleted data')
-    SpreadsheetApp.flush();
-    TABLE.getWrittenData(true)
-    t.notOk(TABLE.model.get(singleRow3),'checking deleted data on written')
-
-    TABLE.model.filter({ sid : 2 })
-    //   // TODO: if del function is updated to execute on write 
-    TABLE.model.del(); TABLE.commit()
-    t.notOk(TABLE.model.filter({ sid : 2 }),'checking deleted data')
-    SpreadsheetApp.flush();
-    TABLE.getWrittenData(true)
-    t.notOk(TABLE.model.filter({ sid : 2 }),'checking deleted data on written')
-
-    TABLE.model.addLast([
-      { ...singleRow1, ['type'] : 'b2c', ['warehouse'] : 'spirit' },
-      { ...singleRow2, ['type'] : 'b2c' }
-    ])
-    TABLE.commit()
-    TABLE.model.filter( { type : 'b2c' } ).sortBy('cid').get( { warehouse : 'spirit' } )
-    //   // TODO: if del function is updated to execute on write 
-    TABLE.model.del(); TABLE.commit()
-    t.notOk(TABLE.model.get( { warehouse : 'spirit' } ), 'checking deleted data')
-    SpreadsheetApp.flush();
-    TABLE.getWrittenData(true)
-    t.notOk(TABLE.model.get( { warehouse : 'spirit' } ), 'checking deleted data on written')
-
-    TABLE.model.get({ 'sid' : 4 }).del()
-    t.throws(() => { TABLE.model.get({ 'sid' : 5 }).del() }, 'trying more than one delete request')
-    TABLE.model._reset()
-  })
-
-  test('MODEL: Placeholder',function(t){
-    if(skipper.placeholder) t.skip()
-    const testingTablesSheet = getSheetById(CONFIG.SS, 944181883)
-    SpreadsheetApp.flush();
-    TABLE = new WritableTable(
-      {
-        table : {
-          name : 'Placeholder',
-          groupRow : false
-        }
-        , model : SCHEMAS.Placeholder
-
-        , sheet : testingTablesSheet
-      }
-    )
-    TABLE_UIDs.next = TABLE
-    TABLE.next = TABLE_5
-
-    TABLE.model.all().del().table.commit(); SpreadsheetApp.flush()
-
-    // trying to initialize a non placeholder table
-    t.throws2(() => {
-      new WritableTable(
-        {
-          table : {
-            name : 'Placeholder',
-            groupRow : false,
-            isLastRowTemplate : true
-          }
-          , model : SCHEMAS.Placeholder
-          
-          , sheet : testingTablesSheet
-        }
-      )
-    },'No placeholder found','Trying to initialize a non placeholder table')
-    TABLE.model.addFirst({ rid : "_" })
-    TABLE.commit(); SpreadsheetApp.flush();
-
-    // attaching placeholder table class to model for the rest of the tests
-    TABLE = new WritableTable(
-      {
-        table : {
-          name : 'Placeholder',
-          groupRow : false,
-          isLastRowTemplate : true
-        }
-        , model : SCHEMAS.Placeholder
-
-        , sheet : testingTablesSheet
-      }
-    )
-
-    TABLE_UIDs.next = TABLE
-    TABLE.next = TABLE_5
-  })
-
-  test('MODEL: UID columns', function(t){
-    if(skipper.uids) t.skip()
-
-    TABLE_UIDs.model.all().del().table.commit()  
-    
-    TABLE_UIDs.model.addFirst(singleRow1)
-    const row1 = JSON.parse(JSON.stringify(singleRow1))
-    
-    row1.sid = getNextInteger('sid',TABLE_UIDs.model.all().value)
-    row1.cid = getNextInteger('cid',TABLE_UIDs.model.all().value)
-    row1.rid = getNextInteger('rid',TABLE_UIDs.model.all().value)
-
-    t.throws(() => TABLE_UIDs.model.addFirst(row1),'Trying to add primary key manually')
-    t.throws(() => TABLE_UIDs.model.get(1).set({ rid : 1 }), 'Trying to update primary key')
-
-    t.equal(row1.sid, singleRow1.sid + 1,'get next max id')
-    t.equal(row1.cid, singleRow1.cid + 1,'get next max id')
-    t.throws(() => TABLE_UIDs.model.addFirst(singleRow1),'Trying to add duplicate ids')
-    TABLE_UIDs.model.addFirst(singleRow2)
-    t.throws(() => TABLE_UIDs.model.get({ cid : singleRow2.cid }).set({ cid : singleRow1.cid }), 'Trying to update unique id column with duplicate value')
-
-    TABLE_UIDs.model.all()
-    TABLE_UIDs.commit()
-
-    TABLE_UIDs.model.all()
-    t.throws(TABLE_UIDs.write, 'Trying duplicating PKs by re-writing')
-  })
-
-  test('TABLE: Property',function(t){
-    if(skipper.tproperties) t.skip()
-
-    TABLE_3.model._reset()
-
-    const error = [
-      'Table header and schemas are not matching!',
-      'Non string type header value found. Check group row property',
-      'Table.values empty. Try checking group row property',
-      'Headers not found. Try checking group row property'
-    ]
-
-    const invalidProp = {
-      model : SCHEMAS.TABLE_3,
-      sheet: testingTablesSheet,
-      table: {
-        name: 'Table 3',
-        groupRow: false
-      }
-    }
-    // test with clear table
-    TABLE_3.model.all().del().table.commit()
-    SpreadsheetApp.flush();
-    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Group row false in group row table')
-
-    // test with data in table
-    TABLE_3.model.addFirst(singleRow1); TABLE_3.commit()
-    SpreadsheetApp.flush();
-    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Group row false in group row table')
-
-    // invalid group row prop
-    invalidProp.model = SCHEMAS.TABLE_4
-    invalidProp.table.name = 'Table 4'
-    invalidProp.table.groupRow = true
-    // test with clear table
-    TABLE_4.model.all().del().table.commit()
-    SpreadsheetApp.flush();
-    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Trying to specify group row in non group row table')
-    // test with data in table
-    TABLE_4.model.addFirst(singleRow1); TABLE_4.commit()
-    SpreadsheetApp.flush();
-    t.throws2(() => {t_ = new WritableTable(invalidProp); t_.getWrittenData(true)}, error ,'Trying to specify group row in non group row table')
-  })
-
-  test('MODEL: Getting', function(t){
-    if(skipper.getting) t.skip()
-
-    TABLE.model.all().del().table.commit()
-
-    TABLE.model.addFirst(multipleRows)
-    TABLE.commit()
-    t.ok(isObject(TABLE.model.get(multipleRows[0]).value[0]),"getting by PK")
-    t.ok(isObject(TABLE.model.get({ sid : 1, cid : 13 }).value[0]), "getting by object")
-    
-    t.throws(() => TABLE.model.get({ type : 'b2b' }), "Trying to get more then one record")
-
-    const invalidQuery = { abc : '2' }
-    t.throws(() =>  TABLE.model.get(invalidQuery), "invalid query error")
-  })
-
-  test('MODEL: Filtering', function(t) {
-    // skipper.filtering = false
-    if(skipper.filtering) t.skip()
-    TABLE.model.all().del().table.commit()
-
-    // adding five more rows to differentiate from filter case
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-
-    // filter case
-    const type = "b2c"
-    const rows = [
-      {...singleRow1 , ['type'] : type },
-      {...singleRow2 , ['type'] : type }
-    ]
-
-    TABLE.model.addFirst(rows)
-    TABLE.commit()
-    TABLE.model.filter({ type : type })
-    rows.map((r,i) => {
-      t.partialDeepEqual(r, TABLE.model.value[i], "checking data with filter case")
-    })
-
-    // case trying to write filtered data
-    t.throws(TABLE.write,"trying to write filtered data")
-
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    TABLE.model.addFirst(rows)
-    TABLE.model.filter({ type : type })
-    t.throws(TABLE.write,"trying to write filtered data")
-
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    TABLE.model.addLast(rows)
-    TABLE.model.filter({ type : type })
-    t.throws(TABLE.write,"trying to write filtered data")
-
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    TABLE.model.get(singleRow3).addAbove(rows)
-    TABLE.model.filter({ type : type })
-    t.throws(TABLE.write,"trying to write filtered data")
-
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    TABLE.model.get(singleRow3).addBelow(rows)
-    TABLE.model.filter({ type : type })
-    t.throws(TABLE.write,"trying to write filtered data")
-
-  })
-
-  test('MODEL: Update',function(t){
-    if(skipper.update) return
-    TABLE.model.all().del().table.commit()
-    TABLE.model.addFirst([
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4,
-      singleRow5
-    ])
-    TABLE.commit()
-    const singleRow1Changed = {
-      ...singleRow1,
-      ['type'] : 'b2c'
-    };
-    const singleRow2Changed = {
-      ...singleRow2,
-      ['type'] : 'b2c',
-      ['warehouse'] : 'spirit'
-    };
-
-    TABLE.model.get(singleRow1).set({ type : 'b2c' })
-    TABLE.commit()
-    t.equal(TABLE.model.get(singleRow1Changed).value[0].type, 'b2c','checking data')
-
-    TABLE.model.get(singleRow2).set({ type : 'b2c', warehouse : 'spirit' })
-    TABLE.commit()
-    t.equal(TABLE.model.get(singleRow2Changed).value[0].type, 'b2c','checking data')
-    t.equal(TABLE.model.get(singleRow2Changed).value[0].warehouse, 'spirit','checking data')
-
-    TABLE.model.filter({ type : 'b2b' }).set({ type : 'b2c' })
-    TABLE.commit()
-    t.equal(TABLE.model.filter({ type : 'b2c' }).value.length, 5, 'checking data')
-  })
-
-  test('MODEL: Table Size',function(t){
-    if(skipper.tablesize) t.skip()
-
-    TABLE.model.all().del().table.commit()
-    t.equal(TABLE.size, 0, 'checking count')
-
-    TABLE.model.addFirst([singleRow1]); TABLE.commit()
-
-    t.equal(TABLE.size, 1,'checking count')
-
-    TABLE.model.addFirst([singleRow1]); TABLE.commit()
-    t.equal(TABLE.size, 2,'checking count')   
-  })
-
-  test('MODEL: getColumnValue', function(t){
-    if(skipper.getColumnValues) t.skip()
-
-    const rows = [
-      singleRow1,
-      singleRow2,
-      singleRow3,
-      singleRow4
-    ]
-    TABLE.model.addFirst(rows)
-    const valuesModel = TABLE.model.all().getColumnValues('sid')
-    const values =  rows.map(r => r['sid'])
-    values.map((v, i) => t.equal(v, valuesModel[i],'checking data'))
-
-    t.throws(() => TABLE.model.all().getColumnValues('abc'), 'trying field not in schema')
-
-    TABLE.model.all().del().table.commit()
-    t.notOk(TABLE.model.all().getColumnValues('sid').length, 'trying to get field from empty table')
-  })
-
-  test('MODEL: Placeholder',function(t){
-    if(skipper.placeholder) t.skip()
-    const testingTablesSheet = getSheetById(CONFIG.SS, 944181883)
-    TABLE.model.all().del().table.commit()
-
-    // attaching table class to check if placeholder is still preserved
-    TABLE = new WritableTable(
-      {
-        table : {
-          name : 'Placeholder',
-          groupRow : false
-        }
-        , model : SCHEMAS.Placeholder
-        , sheet : testingTablesSheet
-      }
-    )
-
-    TABLE_UIDs.next = TABLE
-    TABLE.next = TABLE_5
-    SpreadsheetApp.flush();
-    TABLE.getWrittenData(true)
-    t.ok(TABLE.model.get({ rid : '_' }).value.length,'checking data')
-  })
-
-  test.finish()
 }
