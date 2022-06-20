@@ -1,3 +1,9 @@
+function test_preserve_formula(){
+  let [sheet] = loader([944181883])
+  sheet.models['formula'].addLast({ a : 1 })
+  sheet.commit()
+}
+
 function driver(){
   // setTestTables();
   const [TestTables] = loader([944181883]);

@@ -105,12 +105,11 @@ Array.prototype.steps = function(steps, func){
     // building requests for required data
     const builder = new BatchRequestsBuilder()
     let params = [
-  
-      // params for getting data range values
-      { ids : ids, spreadsheetId : spreadsheetId },
-  
       // data range formulas
       { ids : ids, spreadsheetId : spreadsheetId, formula : true },
+
+      // params for getting data range values
+      { ids : ids, spreadsheetId : spreadsheetId },
   
       // schema sheet data range values
       { ids : [CONFIG.SCHEMA_SHEET.sheetId], spreadsheetId : spreadsheetId }
@@ -140,6 +139,8 @@ Array.prototype.steps = function(steps, func){
     
     // if no sheet ids are provided return schema manager object
     if(ids === undefined) return SM
+
+    if(ids.length === 0) throw new ssManagerError("no sheet ids passed")
   
     /**
      * get sheet id from response
@@ -1265,10 +1266,11 @@ Array.prototype.steps = function(steps, func){
     let requests = []
   
     tables.forEach(table => {
+
+      table.commitValues()
       const batchRequests = table.getBatchRequests()
   
       if(batchRequests.length > 0){
-        table.commitValues()
         requests = [
           ...requests,
           ...batchRequests
