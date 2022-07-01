@@ -1,6 +1,6 @@
 //sheet ids object for convenience
 const shids = {}
-shids.schema = 0
+shids.schema = 1083321884
 
 var CONFIG = {
     SS: SpreadsheetApp.getActiveSpreadsheet(),
@@ -1278,7 +1278,7 @@ Array.prototype.steps = function(steps, func){
       }
   
     })
-  
+
     if(requests.length > 0) Sheets.Spreadsheets.batchUpdate({ requests : requests }, CONFIG.SS.getId())
   }
   
@@ -1295,6 +1295,10 @@ Array.prototype.steps = function(steps, func){
         this._formulaRangeValues = params.formulaRange
       }
       if(sheetId !== undefined) this.getTables(sheetId)
+    }
+
+    delAll(){
+      this.asArray.forEach(t => t.model.all().del())
     }
   
     table(key){
@@ -1478,6 +1482,11 @@ Array.prototype.steps = function(steps, func){
         if(currentRow.length === 0) { i++; continue }
         const tableName = currentRow.reduce((a, c) => a + c)
         const sheetTableId = sheetTableIds.find(sheetTableId => sheetTableId.tableName === tableName)
+
+        let ref = undefined
+        if(tableName === "Stock"){
+          ref = this
+        }
   
         if(sheetTableId !== undefined){
   
@@ -1495,12 +1504,12 @@ Array.prototype.steps = function(steps, func){
           // API response when valueRenderOption is set to UNFORMATTED does not return values appended by array formulas.
           // for example a pivot table's data is appended like an array formula so it API response is empty and in order 
           // to get these values valueRenderOption is set to FORMULA 
-          const formulaHeaderIndex = this._formulaRangeValues[tableStartRow].reduce((a, item, i) => { if(item !== "") { a.push(i); return a } }, [])
-          if(formulaHeaderIndex.length > 0){
-            values.forEach((value, i) => {
-              formulaHeaderIndex.forEach(index => value[index] = this._formulaRangeValues[tableStartRow + i][index])
-            })
-          }
+          // const formulaHeaderIndex = this._formulaRangeValues[tableStartRow].reduce((a, item, i) => { if(item !== "") { a.push(i); return a } }, [])
+          // if(formulaHeaderIndex.length > 0){
+          //   values.forEach((value, i) => {
+          //     formulaHeaderIndex.forEach(index => value[index] = this._formulaRangeValues[tableStartRow + i][index])
+          //   })
+          // }
   
           // setting table
           const schema = this.getSchema(sheetTableId.sheetId, sheetTableId.tableName)
@@ -1550,8 +1559,13 @@ Array.prototype.steps = function(steps, func){
         }      
   
       }
-  
+      
+
       return this._tables
+    }
+
+    get sheetId(){
+      return this._sheetId
     }
     
   }
@@ -3131,7 +3145,7 @@ Array.prototype.steps = function(steps, func){
      * @param {Object} params.t2.data - next transition data
      */
     transition(params){
-      const time = new Date().getTime()
+      let time = new Date().getTime()
       
       const bufferKey = this._first === params.to ? "fbainitbuffer" : params.to + "buffer"
 
@@ -3141,7 +3155,10 @@ Array.prototype.steps = function(steps, func){
 
       // next transition
       if(params.data === false) this._statesData[params.to] = []
-      else if(params.data !== undefined) this._statesData[params.to][0] = [time, params.data] 
+      else if(params.data !== undefined) {
+        if(params.newTime === false) time = this._statesData[params.to][0][0]
+        this._statesData[params.to][0] = [time, params.data]
+      }
 
       this._storageManager.save({
         [bufferKey] : this._statesData[bufferKey],
