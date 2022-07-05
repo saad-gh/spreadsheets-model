@@ -1,6 +1,6 @@
 //sheet ids object for convenience
 const shids = {}
-shids.schema = 1083321884
+shids.schema = 0
 
 var CONFIG = {
     SS: SpreadsheetApp.getActiveSpreadsheet(),
@@ -26,6 +26,7 @@ var CONFIG = {
           isLastRowTemplate : "isLastRowTemplate",
           model : "model",
           strictCheck : "strictCheck",
+          headless : "headless",
           delete : "delete",
           warehouse : "warehouse"
         }
@@ -55,6 +56,26 @@ var CONFIG = {
       Error.captureStackTrace(this, this.constructor);
     }
   }
+
+// assuming candidates array is also sorted
+Array.prototype.partialMatch = function(candidates){
+  this.sort()
+  let j = 0
+    , i = 0;
+  while (true) {
+      if (candidates[j] === this[i]) {
+          j += 1
+          i += 1
+          if(j === candidates.length) return true
+      } else {
+          i += 1
+          if (i === this.length)
+              break;
+      }
+  }
+
+  return false
+}
 
   /**
  * mapping array with steps
@@ -1187,7 +1208,7 @@ Array.prototype.steps = function(steps, func){
       return this._currentSchema
     }
   
-    insertNewTable(params = { isLastRowTemplate : true, model : "BypassStrictSchemaCheck" }){
+    insertNewTable(params = { isLastRowTemplate : true, model : "BypassStrictSchemaCheck", headless : false }){
   
       const rng = SpreadsheetApp.getActiveRange()
   
@@ -1198,32 +1219,25 @@ Array.prototype.steps = function(steps, func){
       const sheet = rng.getSheet()
       const sheetName = sheet.getName()
       const sheetId = sheet.getSheetId()
+      const headless = params.headless
       let groupRow = 0
-      let destination = undefined
   
-      if(values.length === 1) throw new ssManagerError('Table cannot have one row') 
+      if(values.length === 1 && headless === false) throw new ssManagerError('Table cannot have one row') 
   
       const headerRow = values.length - 1
   
-      // if(values.length > 3) throw new ssManagerError('Active range has more than 3 rows. Only table name and header row should be included')
-  
-      if(values.length >= 3) {
-        const groups = values[headerRow - 1].filter(v => v !== "").length
-        const headers = values[headerRow].filter(v => v !== "").length
-  
-        if(headers <= groups)
-          throw new ssManagerError('Invalid group row')
-        
-        // first non empty cell is named destination
-        destination = values[headerRow - 1].find(value => value !== "")
-  
+      if(values.length >= 3 && !headless) {  
         // -1 for header row and -1 for table name
         groupRow = values.length - 1 - 1
+      } else if (values.length >= 2 && headless){
+        // -1 for header row
+        groupRow = values.length - 1
       }
-      
   
       // first row of active range is expected to be table name
-      const tableName = values[0].reduce((a, c) => a + c)
+      let tableName = values[0].reduce((a, c) => a + c)
+      if(headless) tableName = values[0].sort().join(",")
+
       // last row is expected to have headers
       const headers = values[headerRow]
   
@@ -1244,7 +1258,7 @@ Array.prototype.steps = function(steps, func){
       if(params.model === "BypassStrictSchemaCheck") params.strictCheck = false
       else params.strictCheck = true
   
-      this._propertiesTable.model.addLast({...params, sheetId : sheetId, tableName : tableName, groupRow : groupRow }).table.commit()
+      this._propertiesTable.model.addLast({...params, sheetId : sheetId, tableName : tableName, groupRow : groupRow, headless : headless }).table.commit()
   
     }
   
@@ -1469,6 +1483,8 @@ Array.prototype.steps = function(steps, func){
   
       // @param filter {Array} - array of table names
       if(params.filter.length > 0) sheetTableIds = sheetTableIds.filter(id => params.filter.indexOf(id.tableName) !== -1); 
+
+      const headless = sheetTableIds.length === 1 && sheetTableIds[0].headless
   
       // @param tables {Array} - each item is an array of two items
       // item at index 0 is the table object and item and index 1
@@ -1480,18 +1496,26 @@ Array.prototype.steps = function(steps, func){
   
         const currentRow = this._dataRangeValues[i];
         if(currentRow.length === 0) { i++; continue }
-        const tableName = currentRow.reduce((a, c) => a + c)
-        const sheetTableId = sheetTableIds.find(sheetTableId => sheetTableId.tableName === tableName)
+        let tableName = undefined
+        let sheetTableId = undefined
 
-        let ref = undefined
-        if(tableName === "Stock"){
-          ref = this
+        if(headless) {
+          let temp = sheetTableIds[0]
+          if(currentRow.partialMatch(temp.tableName.split(","))){
+            sheetTableId = temp
+            tableName = temp.tableName
+          }          
+        } else {
+          tableName = currentRow.reduce((a, c) => a + c)
+          sheetTableId = sheetTableIds.find(sheetTableId => sheetTableId.tableName === tableName)
         }
   
         if(sheetTableId !== undefined){
   
           // getting table boundary and values
           i += (sheetTableId.groupRow ? sheetTableId.groupRow + 1 : 1)
+          i -= (headless ? 1 : 0)
+
           const tableStartRow = i
           const values = [];
           
@@ -1501,20 +1525,10 @@ Array.prototype.steps = function(steps, func){
           } 
           const tableEndRow = i;
   
-          // API response when valueRenderOption is set to UNFORMATTED does not return values appended by array formulas.
-          // for example a pivot table's data is appended like an array formula so it API response is empty and in order 
-          // to get these values valueRenderOption is set to FORMULA 
-          // const formulaHeaderIndex = this._formulaRangeValues[tableStartRow].reduce((a, item, i) => { if(item !== "") { a.push(i); return a } }, [])
-          // if(formulaHeaderIndex.length > 0){
-          //   values.forEach((value, i) => {
-          //     formulaHeaderIndex.forEach(index => value[index] = this._formulaRangeValues[tableStartRow + i][index])
-          //   })
-          // }
-  
           // setting table
           const schema = this.getSchema(sheetTableId.sheetId, sheetTableId.tableName)
           const table = new WritableTable({
-            table : { ...sheetTableId, name : sheetTableId.tableName },
+            table : { ...sheetTableId, name : sheetTableId.tableName, headless : headless },
             model : new Model(schema, sheetTableId.strictCheck),
             sheetId : sheetTableId.sheetId,
             tableStartRow : tableStartRow,
@@ -2680,6 +2694,7 @@ Array.prototype.steps = function(steps, func){
       if(typeof this.name !== "string"){
         this.name = params.table.name
         this.groupRow = params.table.groupRow === undefined ? false : params.table.groupRow
+        this.headless = params.table.headless
       } 
   
       // this.batchFormulaRequests = []
@@ -2906,10 +2921,15 @@ Array.prototype.steps = function(steps, func){
       if(this._dataRangeValues === undefined) this._getDataRangeValues();
       
       let tableNameRow = this._dataRangeValues.map(row => row.length > 0 ? row.reduce((a, c) => a + c) : "").indexOf(this.name)
+
+      if(this.headless){
+        tableNameRow = this._dataRangeValues.findIndex(row => row.length > 0 && row.partialMatch(this.name.split(",")))
+      }
   
       if(tableNameRow === -1) throw new ssManagerError(`Table ${this.name} sheet id ${this.sheet.getSheetId()} not found`)
   
       let _tableStart = tableNameRow + (this.groupRow ? this.groupRow + 1 : 1);
+      if(this.headless) _tableStart -= 1
   
       // let _tableEnd = this._dataRangeValues.slice(_tableStart).map(row => row.length > 0 ? row.reduce((a, c) => a + c) : "").indexOf("")
       let _tableEnd = this._dataRangeValues.slice(_tableStart).findIndex(row => row.length === 0)
